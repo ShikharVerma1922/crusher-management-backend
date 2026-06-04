@@ -1,0 +1,102 @@
+// datasource and generator configurations
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+// ------------------------------------------------------
+// ENUMS
+
+enum Role {
+  CLERK
+  SUPERVISOR
+  OWNER
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ------------------------------------------------------
+// MODELS
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String // Hashed password
+  name      String
+  role      Role     @default(CLERK)
+  isActive  Boolean  @default(true) // To deactivate fired/left clerks
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  transactions         Transaction[] @relation("ClerkTransactions")
+  createdVoidRequests  VoidRequest[] @relation("RequestedByClerk")
+  actionedVoidRequests VoidRequest[] @relation("ActionedByAdmin")
+}
+
+model Material {
+  id         String   @id @default(uuid())
+  name       String   @unique // e.g., "20mm Aggregate", "Stone Dust"
+  ratePerTon Float // Standard selling price
+  isActive   Boolean  @default(true) // For soft-deleting a material type
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  transactions Transaction[]
+}
+
+model Transaction {
+  id            String @id @default(uuid())
+  receiptNumber Int    @unique @default(autoincrement()) // Easy-to-read sequential ID for paper slips
+  vehicleNumber String // e.g., "MP-09-HE-1234"
+  customerName  String
+
+  // Weight metrics in Kilograms or Metric Tons
+  grossWeight Float // Weight of loaded truck
+  tareWeight  Float // Weight of empty truck
+  netWeight   Float // grossWeight - tareWeight
+
+  rateApplied Float // Snapped from Material table at creation time (prevents historical rate changes from retroactively shifting old revenue records)
+  totalAmount Float // netWeight * rateApplied
+
+  // Soft Delete and Status Tracking
+  isVoided  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  clerkId     String
+  clerk       User         @relation("ClerkTransactions", fields: [clerkId], references: [id])
+  materialId  String
+  material    Material     @relation(fields: [materialId], references: [id])
+  voidRequest VoidRequest?
+}
+
+model VoidRequest {
+  id         String        @id @default(uuid())
+  reason     String // Why did the clerk want to change this?
+  status     RequestStatus @default(PENDING)
+  adminNotes String? // Why did the owner approve or reject it?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  transactionId String      @unique
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+
+  clerkId     String
+  requestedBy User   @relation("RequestedByClerk", fields: [clerkId], references: [id])
+
+  adminId    String?
+  actionedBy User?   @relation("ActionedByAdmin", fields: [adminId], references: [id])
+}
