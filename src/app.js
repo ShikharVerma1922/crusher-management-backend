@@ -9,6 +9,7 @@ import { env } from "./config/env.js";
 import authRoutes from "./routes/auth.route.js";
 import transactionRoutes from "./routes/transaction.route.js";
 import materialRoutes from "./routes/material.route.js";
+import voidRoutes from "./routes/void.route.js";
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.use(cookieParser());
 app.use("/api/auth", authRoutes);
 app.use("/api/transactions", transactionRoutes);
 app.use("/api/materials", materialRoutes);
+app.use("/api/void-requests", voidRoutes);
 
 app.use(errorHandler);
 
