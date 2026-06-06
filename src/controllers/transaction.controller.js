@@ -9,17 +9,16 @@ import { io } from "../server.js";
  * @access  Private (Clerk Only)
  */
 export const processTransaction = asyncHandler(async (req, res) => {
-  const { vehicleNumber, customerName, grossWeight, tareWeight, materialId } =
-    req.body;
-  const clerkId = req.user.id;
+  const { vehicleNumber, customerName, grossWeight, tareWeight } = req.body;
+  // const clerkId = req.user.id;
 
   const transaction = await transactionService.createTransactionRecord({
     vehicleNumber,
     customerName,
     grossWeight,
     tareWeight,
-    materialId,
-    clerkId,
+    // materialId,
+    // clerkId,
   });
 
   // This layout structure cleanly maps to the raw string properties the Android RawBT agent needs

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Weighbridge Tablet Client Simulator</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  </head>
+  <body style="font-family: sans-serif; padding: 30px; text-align: center">
+    <h2>🚛 Weighbridge Gate Node Simulator</h2>
+    <div id="status" style="color: red; font-weight: bold; margin-bottom: 20px">
+      Disconnecting...
+    </div>
+
+    <button
+      onclick="joinCabinRoom()"
+      style="padding: 10px 20px; font-size: 16px"
+    >
+      Initialize Gate Cabin Channel
+    </button>
+
+    <div
+      id="logs"
+      style="
+        margin-top: 30px;
+        border: 1px solid #ccc;
+        padding: 15px;
+        text-align: left;
+        background: #f9f9f9;
+        min-height: 100px;
+      "
+    >
+      Waiting for cloud weight triggers...
+    </div>
+
+    <script>
+      // ⚠️ REPLACE THIS WITH YOUR LAPTOP'S ACTUAL WI-FI IP ADDRESS
+      const LAPTOP_IP = "192.168.29.242";
+
+      const socket = io(`http://${LAPTOP_IP}:3000`);
+
+      socket.on("connect", () => {
+        document.getElementById("status").innerText =
+          "Connected to Laptop Cloud Engine!";
+        document.getElementById("status").style.color = "green";
+      });
+
+      function joinCabinRoom() {
+        socket.emit("join-room", "plant_clerk_room");
+        document.getElementById("logs").innerHTML +=
+          "<br><b>[SYSTEM]:</b> Registered into room: plant_clerk_room";
+      }
+
+      // Catch the real-time event your Express Controller fires
+      socket.on("print-job-triggered", (data) => {
+        document.getElementById("logs").innerHTML +=
+          `<br><b>[PRINT JOB]:</b> Received ticket for ${data.vehicleNumber}`;
+
+        // Format a raw text receipt string using basic spaces
+        const receiptText =
+          `================================\\n` +
+          `     STONE CRUSHING PLANT       \\n` +
+          `================================\\n` +
+          `Vehicle No : ${data.vehicleNumber}\\n` +
+          `Customer   : ${data.customerName}\\n` +
+          `Material   : ${data.materialName}\\n` +
+          `Gross Wt   : ${data.grossWeight} KG\\n` +
+          `Tare Wt    : ${data.tareWeight} KG\\n` +
+          `Net Weight : ${data.netWeight} KG\\n` +
+          `Total Amt  : INR ${data.totalAmount}\\n` +
+          `================================\\n\\n\\n`;
+
+        // THE MAGIC LINK: This Android Intent wakes up RawBT on your tablet automatically
+        // and throws the raw text payload straight to your configured printer phone!
+        const rawbtIntent = `intent://send?text=${encodeURIComponent(receiptText)}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;`;
+
+        // Trigger the intent automatically
+        window.location.href = rawbtIntent;
+      });
+
+      socket.on("disconnect", () => {
+        document.getElementById("status").innerText =
+          "Disconnected from server.";
+        document.getElementById("status").style.color = "red";
+      });
+    </script>
+  </body>
+</html>
