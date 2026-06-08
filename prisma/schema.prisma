@@ -40,6 +40,20 @@ model User {
   transactions         Transaction[] @relation("ClerkTransactions")
   createdVoidRequests  VoidRequest[] @relation("RequestedByClerk")
   actionedVoidRequests VoidRequest[] @relation("ActionedByAdmin")
+  shifts               Shift[]
+}
+
+model Shift {
+  id                    String    @id // Client-generated or Server-generated unique token (e.g., SHIFT-shikhar-A3F9B)
+  userId                String
+  status                String    @default("OPEN")
+  openedAt              DateTime  @default(now())
+  closedAt              DateTime?
+  totalCashCollected    Float     @default(0.0)
+  totalTonnageProcessed Float     @default(0.0)
+
+  user         User          @relation(fields: [userId], references: [id])
+  transactions Transaction[]
 }
 
 model Material {
@@ -79,6 +93,8 @@ model Transaction {
   materialId  String
   material    Material     @relation(fields: [materialId], references: [id])
   voidRequest VoidRequest?
+  shift       Shift?       @relation(fields: [shiftId], references: [id])
+  shiftId     String?
 }
 
 model VoidRequest {
