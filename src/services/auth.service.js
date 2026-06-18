@@ -60,6 +60,18 @@ export const loginUser = async ({ username, password }) => {
 
   const token = generateToken(user.id);
 
+  // Client-side deterministic shift pattern configuration fallback helper
+  const shortHex = Date.now().toString(16).toUpperCase().slice(-5);
+  const generatedShiftId = `SHIFT-${user.username.toUpperCase()}-${shortHex}`;
+
+  const newShift = await prisma.shift.create({
+    data: {
+      id: generatedShiftId,
+      userId: user.id,
+      status: "OPEN",
+    },
+  });
+
   return {
     user: {
       id: user.id,
@@ -67,6 +79,7 @@ export const loginUser = async ({ username, password }) => {
       name: user.name,
       role: user.role,
     },
+    shiftId: newShift?.id,
     token,
   };
 };

@@ -50,13 +50,16 @@ export const login = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Please provide username and password.");
   }
 
-  const { user, token } = await authService.loginUser({ username, password });
+  const { user, shiftId, token } = await authService.loginUser({
+    username,
+    password,
+  });
 
   res.cookie("token", token, cookieOptions);
 
   return res
     .status(200)
-    .json(new ApiResponse(200, { user }, "Login successful"));
+    .json(new ApiResponse(200, { user, shiftId }, "Login successful"));
 });
 
 /**

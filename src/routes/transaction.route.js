@@ -17,8 +17,7 @@ router.get("/", protect, authorize("SUPERVISOR", "OWNER"), getAllTransactions);
 router.get("/shift", protect, authorize("CLERK"), getShiftTransactions);
 
 // 3. Main Data Entry channel
-// router.post("/", protect, authorize("CLERK"), processTransaction);
-router.post("/", processTransaction);
+router.post("/", protect, authorize("CLERK"), processTransaction);
 
 // 4. Remote hardware manual print trigger override - Open to all validated workers
 router.post("/:id/reprint", protect, triggerManualReprint);

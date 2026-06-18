@@ -10,10 +10,10 @@ export const createTransactionRecord = async ({
   grossWeight,
   tareWeight,
   // materialId,
-  // clerkId,
+  clerkId,
 }) => {
   // 1. Force a valid Clerk/User UUID from your database user table:
-  const clerkId = "9c3d024f-4bf4-4301-b526-ad7874265083";
+  // const clerkId = "9c3d024f-4bf4-4301-b526-ad7874265083";
 
   // 2. THE FIX: Force a valid Material UUID from your material database table:
   // Go to your database (via Prisma Studio or pgAdmin) and grab any active material ID row.
@@ -23,7 +23,6 @@ export const createTransactionRecord = async ({
   const material = await prisma.material.findUnique({
     where: { id: materialId },
   });
-
   if (!material || !material.isActive) {
     throw new ApiError(404, "Selected material is invalid or no longer active");
   }

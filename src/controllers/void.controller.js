@@ -10,7 +10,8 @@ import * as voidService from "../services/void.service.js";
 export const fileVoidRequest = asyncHandler(async (req, res) => {
   const { transactionId, reason } = req.body;
   const clerkId = req.user.id;
-
+  console.log("test");
+  console.log(transactionId, reason);
   const newRequest = await voidService.createRequest({
     transactionId,
     reason,
