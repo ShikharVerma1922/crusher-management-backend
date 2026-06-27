@@ -101,3 +101,37 @@ export const actionRequest = async (
     return updatedRequest;
   });
 };
+
+/**
+ * Fetch resolved void history records filtered by status
+ */
+export const getResolvedVoidHistory = async (status, page = 1, limit = 10) => {
+  const skipCount = (page - 1) * limit;
+
+  // Run a concurrent database operation block to protect performance speeds
+  const [totalCount, records] = await prisma.$transaction([
+    prisma.voidRequest.count({ where: { status } }),
+    prisma.voidRequest.findMany({
+      where: { status },
+      skip: skipCount,
+      take: limit,
+      include: {
+        requestedBy: { select: { name: true } },
+        transaction: {
+          include: { material: { select: { name: true } } },
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+    }),
+  ]);
+
+  return {
+    records,
+    pagination: {
+      totalItems: totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      currentPage: page,
+      limit,
+    },
+  };
+};

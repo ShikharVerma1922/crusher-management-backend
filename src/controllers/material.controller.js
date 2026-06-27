@@ -1,6 +1,7 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import * as materialService from "../services/material.service.js";
+import { ApiError } from "../utils/ApiError.js";
 
 /**
  * @desc    Create new stone material profile
@@ -8,10 +9,10 @@ import * as materialService from "../services/material.service.js";
  * @access  Private (Owner Only)
  */
 export const createMaterial = asyncHandler(async (req, res) => {
-  const { name, ratePerTon } = req.body;
+  const { name } = req.body;
+  if (!name) throw new ApiError(400, "Name of the material is required");
   const newMaterial = await materialService.addMaterialType({
     name,
-    ratePerTon,
   });
 
   return res
@@ -28,16 +29,29 @@ export const createMaterial = asyncHandler(async (req, res) => {
 /**
  * @desc    Get listing of active materials for form selections
  * @route   GET /api/materials
- * @access  Private (Clerk, Supervisor, Owner)
+ * @access  Private (Clerk)
  */
-export const listMaterials = asyncHandler(async (req, res) => {
-  const activeMaterials = await materialService.getAllActiveMaterials();
+export const listMaterialsClerk = asyncHandler(async (req, res) => {
+  const activeMaterials = await materialService.getAllActiveMaterialsClerk();
 
   return res
     .status(200)
     .json(
       new ApiResponse(200, activeMaterials, "Active material logs retrieved"),
     );
+});
+
+/**
+ * @desc    Get listing of active materials for form selections
+ * @route   GET /api/materials
+ * @access  Private (Owner)
+ */
+export const listMaterialsOwner = asyncHandler(async (req, res) => {
+  const materials = await materialService.getAllActiveMaterialsOwner();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, materials, "Materials logs retrieved"));
 });
 
 /**

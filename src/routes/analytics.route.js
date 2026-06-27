@@ -1,5 +1,6 @@
 import express from "express";
 import {
+  getAnalyticsTrends,
   getDashboardSummary,
   getMaterialAnalytics,
 } from "../controllers/analytics.controller.js";
@@ -12,5 +13,6 @@ router.use(authorize("OWNER"));
 
 router.get("/summary", getDashboardSummary);
 router.get("/materials", getMaterialAnalytics);
+router.get("/trend", protect, authorize("OWNER"), getAnalyticsTrends);
 
 export default router;

@@ -1,6 +1,7 @@
 import express from "express";
 import {
   fileVoidRequest,
+  getVoidHistory,
   listPendingRequests,
   resolveVoidRequest,
 } from "../controllers/void.controller.js";
@@ -24,5 +25,6 @@ router.patch(
   authorize("SUPERVISOR", "OWNER"),
   resolveVoidRequest,
 );
+router.get("/history", protect, authorize("OWNER"), getVoidHistory);
 
 export default router;

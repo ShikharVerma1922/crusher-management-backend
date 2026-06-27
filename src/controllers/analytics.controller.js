@@ -7,21 +7,37 @@ import * as analyticsService from "../services/analytics.service.js";
  * @route   GET /api/analytics/summary
  * @access  Private (Owner Only)
  */
-export const getDashboardSummary = asyncHandler(async (req, res) => {
-  const { range } = req.query; // Expects values like 'today' or 'month'
 
-  const metrics = await analyticsService.getSummaryMetrics(range);
+export const getDashboardSummary = async (req, res) => {
+  try {
+    // Extract parameters directly: /api/analytics?startDate=...&endDate=...
+    const { startDate, endDate } = req.query;
 
-  return res
-    .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        metrics,
-        `Plant summary report compiled for range scope: [${range || "all-time"}]`,
-      ),
+    // Execute operations service layer matching parameters directly
+    const summaryMetrics = await analyticsService.getSummaryMetrics(
+      startDate,
+      endDate,
     );
-});
+
+    // Fallback: Pass dates down into material breakdowns if you want that matching range filtered too!
+    const materialMetrics =
+      await analyticsService.getMaterialBreakdownMetrics();
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        summary: summaryMetrics,
+        materials: materialMetrics,
+      },
+    });
+  } catch (error) {
+    console.error("❌ [Analytics Route Handling Error]:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Internal backend error processing transaction calculations.",
+    });
+  }
+};
 
 /**
  * @desc    Get output breakdowns grouped by material category sizes
@@ -38,6 +54,23 @@ export const getMaterialAnalytics = asyncHandler(async (req, res) => {
         200,
         breakdown,
         "Product category sales summaries calculated successfully",
+      ),
+    );
+});
+
+export const getAnalyticsTrends = asyncHandler(async (req, res) => {
+  const { preset } = req.query;
+
+  const trendTimelineArray =
+    await analyticsService.getAnalyticsTrendData(preset);
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        trendTimelineArray,
+        "Trend timeline fetched successfully",
       ),
     );
 });

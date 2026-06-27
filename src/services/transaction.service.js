@@ -5,21 +5,18 @@ import { ApiError } from "../utils/ApiError.js";
  * Create a new weighbridge transaction record
  */
 export const createTransactionRecord = async ({
+  receiptNumber,
   vehicleNumber,
   customerName,
-  grossWeight,
-  tareWeight,
-  // materialId,
+  netWeight,
+  rateApplied,
+  paymentType,
+  totalAmount,
+  site,
+  materialId,
+  createdAt,
   clerkId,
 }) => {
-  // 1. Force a valid Clerk/User UUID from your database user table:
-  // const clerkId = "9c3d024f-4bf4-4301-b526-ad7874265083";
-
-  // 2. THE FIX: Force a valid Material UUID from your material database table:
-  // Go to your database (via Prisma Studio or pgAdmin) and grab any active material ID row.
-  const materialId = "2c5922ba-a50d-4c7c-85d2-1c8e7eeae24a";
-
-  // 1. Fetch the material to get the live baseline selling rate
   const material = await prisma.material.findUnique({
     where: { id: materialId },
   });
@@ -27,33 +24,32 @@ export const createTransactionRecord = async ({
     throw new ApiError(404, "Selected material is invalid or no longer active");
   }
 
-  // 2. Compute industrial weight metrics (In KG)
-  const netWeight = grossWeight - tareWeight;
-  if (netWeight <= 0) {
+  if (!(receiptNumber && vehicleNumber && customerName))
+    throw new ApiError(400, "All the filed are required");
+
+  if (paymentType == "CASH" && !(rateApplied || totalAmount))
     throw new ApiError(
       400,
-      "Gross weight must be strictly greater than tare weight",
+      "Either rate or amount is required for CASH payment",
     );
-  }
 
-  // Convert Net Weight in KG to Metric Tons for final bill calculation (1 Ton = 1000 KG)
-  const netWeightInTons = netWeight / 1000;
-
-  // 3. Calculate financial totals
-  const rateApplied = material.ratePerTon;
-  const totalAmount = Math.round(netWeightInTons * rateApplied * 100) / 100;
+  if (!rateApplied) rateApplied = totalAmount / netWeight;
+  if (paymentType && paymentType.toUpperCase() == "CASH" && !totalAmount)
+    totalAmount = rateApplied * netWeight;
 
   const newTransaction = await prisma.transaction.create({
     data: {
       vehicleNumber: vehicleNumber.toUpperCase().trim(),
       customerName: customerName.trim(),
-      grossWeight,
-      tareWeight,
       netWeight,
       rateApplied,
       totalAmount,
       clerkId,
       materialId,
+      site,
+      paymentType,
+      receiptNumber,
+      createdAt,
     },
     include: {
       material: {
@@ -107,6 +103,7 @@ export const getGlobalTransactions = async ({
     whereClause.OR = [
       { vehicleNumber: { contains: search.toUpperCase().trim() } },
       { customerName: { contains: search, mode: "insensitive" } },
+      { receiptNumber: { contains: search, mode: "insensitive" } },
     ];
   }
 
@@ -117,7 +114,6 @@ export const getGlobalTransactions = async ({
     if (endDate) whereClause.createdAt.lte = new Date(endDate);
   }
 
-  // Run simultaneous database lookups for speed optimization
   const [transactions, totalCount] = await prisma.$transaction([
     prisma.transaction.findMany({
       where: whereClause,

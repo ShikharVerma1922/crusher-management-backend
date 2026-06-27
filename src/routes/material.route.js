@@ -1,14 +1,16 @@
 import express from "express";
 import {
   createMaterial,
-  listMaterials,
   editMaterial,
+  listMaterialsClerk,
+  listMaterialsOwner,
 } from "../controllers/material.controller.js";
 import { protect, authorize } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-router.get("/", protect, listMaterials);
+router.get("/clerk", protect, listMaterialsClerk);
+router.get("/", protect, authorize("OWNER"), listMaterialsOwner);
 router.post("/", protect, authorize("OWNER"), createMaterial);
 router.patch("/:id", protect, authorize("OWNER"), editMaterial);
 

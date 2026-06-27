@@ -1,3 +1,4 @@
+import { response } from "express";
 import prisma from "../config/prisma.js";
 import { ApiError } from "../utils/ApiError.js";
 
@@ -14,39 +15,52 @@ export const addMaterialType = async ({ name, ratePerTon }) => {
   if (existingMaterial) {
     throw new ApiError(
       400,
-      `Material style '${normalizedName}' already exists.`,
+      `Material varient '${normalizedName}' already exists.`,
     );
   }
 
   return await prisma.material.create({
     data: {
       name: normalizedName,
-      ratePerTon: parseFloat(ratePerTon),
     },
   });
 };
 
 /**
- * Fetch all active materials (Used by both Clerks in dropdowns & Owners)
+ * Fetch all active materials for clerk
  */
-export const getAllActiveMaterials = async () => {
-  return await prisma.material.findMany({
+export const getAllActiveMaterialsClerk = async () => {
+  const response = await prisma.material.findMany({
     where: { isActive: true },
     orderBy: { name: "asc" },
   });
+
+  return response;
+};
+
+/**
+ * Fetch all active materials for owner
+ */
+
+export const getAllActiveMaterialsOwner = async () => {
+  const response = await prisma.material.findMany({
+    orderBy: [{ isActive: "desc" }, { name: "asc" }],
+  });
+
+  return response;
 };
 
 /**
  * Update the selling rate or deactivate an existing material
  */
-export const updateMaterialType = async (id, { ratePerTon, isActive }) => {
+export const updateMaterialType = async (id, { name, isActive }) => {
   const existingMaterial = await prisma.material.findUnique({ where: { id } });
   if (!existingMaterial) {
     throw new ApiError(404, "Material not found");
   }
 
   const updateData = {};
-  if (ratePerTon !== undefined) updateData.ratePerTon = parseFloat(ratePerTon);
+  if (name !== undefined) updateData.name = name.trim();
   if (isActive !== undefined) updateData.isActive = isActive;
 
   return await prisma.material.update({

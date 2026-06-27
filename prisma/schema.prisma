@@ -23,6 +23,11 @@ enum RequestStatus {
   REJECTED
 }
 
+enum PaymentType {
+  CASH
+  CREDIT
+}
+
 // ------------------------------------------------------
 // MODELS
 
@@ -57,12 +62,11 @@ model Shift {
 }
 
 model Material {
-  id         String   @id @default(uuid())
-  name       String   @unique // e.g., "20mm Aggregate", "Stone Dust"
-  ratePerTon Float // Standard selling price
-  isActive   Boolean  @default(true) // For soft-deleting a material type
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(uuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
   transactions Transaction[]
@@ -70,17 +74,16 @@ model Material {
 
 model Transaction {
   id            String @id @default(uuid())
-  receiptNumber Int    @unique @default(autoincrement()) // Easy-to-read sequential ID for paper slips
-  vehicleNumber String // e.g., "MP-09-HE-1234"
+  receiptNumber String @unique
+  vehicleNumber String
   customerName  String
 
-  // Weight metrics in Kilograms or Metric Tons
-  grossWeight Float // Weight of loaded truck
-  tareWeight  Float // Weight of empty truck
-  netWeight   Float // grossWeight - tareWeight
+  netWeight   Float
+  rateApplied Float
+  paymentType PaymentType @default(CREDIT)
+  totalAmount Float       @default(0.00)
 
-  rateApplied Float // Snapped from Material table at creation time (prevents historical rate changes from retroactively shifting old revenue records)
-  totalAmount Float // netWeight * rateApplied
+  site String?
 
   // Soft Delete and Status Tracking
   isVoided  Boolean  @default(false)
@@ -99,9 +102,9 @@ model Transaction {
 
 model VoidRequest {
   id         String        @id @default(uuid())
-  reason     String // Why did the clerk want to change this?
+  reason     String
   status     RequestStatus @default(PENDING)
-  adminNotes String? // Why did the owner approve or reject it?
+  adminNotes String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

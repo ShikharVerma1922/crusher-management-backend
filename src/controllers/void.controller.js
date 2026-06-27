@@ -1,6 +1,7 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import * as voidService from "../services/void.service.js";
+import { ApiError } from "../utils/ApiError.js";
 
 /**
  * @desc    File an error correction request for a specific transaction
@@ -73,4 +74,31 @@ export const resolveVoidRequest = asyncHandler(async (req, res) => {
         `Correction request has been officially ${status.toLowerCase()}`,
       ),
     );
+});
+
+export const getVoidHistory = asyncHandler(async (req, res) => {
+  const { status } = req.query;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 15;
+
+  if (!["APPROVED", "REJECTED"].includes(status)) {
+    throw new ApiError(400, "Invalid status parameters requested.");
+  }
+
+  const paginatedPayload = await voidService.getResolvedVoidHistory(
+    status,
+    page,
+    limit,
+  );
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        history: paginatedPayload.records,
+        meta: paginatedPayload.pagination,
+      },
+      "Void history fetched successfully.",
+    ),
+  );
 });

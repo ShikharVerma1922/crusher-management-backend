@@ -11,7 +11,7 @@ import { cookieOptions } from "../utils/cookieOptions.js";
  * @access  Private (Owner Only)
  */
 export const register = asyncHandler(async (req, res) => {
-  const { username, password, name, role } = req.body;
+  const { username, password, name, role = "CLERK" } = req.body;
 
   if (
     !username ||

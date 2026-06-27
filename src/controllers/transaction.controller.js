@@ -11,36 +11,44 @@ import { io } from "../server.js";
 export const processTransaction = asyncHandler(async (req, res) => {
   // console.log("[Incoming Payload Data]:", req.body);
   const {
+    receiptNumber,
     vehicleNumber,
     customerName,
-    grossWeight,
-    tareWeight,
-    // materialId,
-    clerkId,
+    netWeight,
+    rateApplied,
+    paymentType,
+    totalAmount,
+    site,
+    createdAt,
+    materialId,
   } = req.body;
   const transaction = await transactionService.createTransactionRecord({
+    receiptNumber,
     vehicleNumber,
     customerName,
-    grossWeight,
-    tareWeight,
-    // materialId,
+    netWeight,
+    rateApplied,
+    paymentType,
+    totalAmount,
+    site,
+    materialId,
+    createdAt,
     clerkId: req.user.id,
   });
 
-  // This layout structure cleanly maps to the raw string properties the Android RawBT agent needs
-  io.to("plant_clerk_room").emit("print-job-triggered", {
-    receiptNumber: transaction.receiptNumber,
-    vehicleNumber: transaction.vehicleNumber,
-    customerName: transaction.customerName,
-    materialName: transaction.material.name,
-    grossWeight: transaction.grossWeight,
-    tareWeight: transaction.tareWeight,
-    netWeight: transaction.netWeight,
-    rateApplied: transaction.rateApplied,
-    totalAmount: transaction.totalAmount,
-    clerkName: transaction.clerk.name,
-    timestamp: transaction.createdAt,
-  });
+  // io.to("plant_clerk_room").emit("print-job-triggered", {
+  //   receiptNumber: transaction.receiptNumber,
+  //   vehicleNumber: transaction.vehicleNumber,
+  //   customerName: transaction.customerName,
+  //   materialName: transaction.material.name,
+  //   grossWeight: transaction.grossWeight,
+  //   tareWeight: transaction.tareWeight,
+  //   netWeight: transaction.netWeight,
+  //   rateApplied: transaction.rateApplied,
+  //   totalAmount: transaction.totalAmount,
+  //   clerkName: transaction.clerk.name,
+  //   timestamp: transaction.createdAt,
+  // });
 
   return res
     .status(201)
