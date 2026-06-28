@@ -146,3 +146,21 @@ export const triggerManualReprint = asyncHandler(async (req, res) => {
       ),
     );
 });
+
+/**
+ * @desc    Get the latest receipt number
+ * @route   GET /api/transactions/latest-receipt-num
+ * @access  Private (All Roles)
+ */
+export const getLatestReceiptNum = asyncHandler(async (req, res) => {
+  const latestNum = await transactionService.getMaxReceiptNumber();
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        latestNum,
+        "Latest receipt number fetched successfully.",
+      ),
+    );
+});

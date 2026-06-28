@@ -5,6 +5,7 @@ import {
   getAllTransactions,
   getShiftTransactions,
   triggerManualReprint,
+  getLatestReceiptNum,
 } from "../controllers/transaction.controller.js";
 import { protect, authorize } from "../middlewares/auth.middleware.js";
 
@@ -21,5 +22,8 @@ router.post("/", protect, authorize("CLERK"), processTransaction);
 
 // 4. Remote hardware manual print trigger override - Open to all validated workers
 router.post("/:id/reprint", protect, triggerManualReprint);
+
+// 5. Get latest receipt number
+router.get("/latest-receipt-num", protect, getLatestReceiptNum);
 
 export default router;

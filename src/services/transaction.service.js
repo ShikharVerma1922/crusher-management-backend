@@ -157,3 +157,16 @@ export const getClerkShiftTransactions = async (clerkId) => {
     },
   });
 };
+
+export const getMaxReceiptNumber = async () => {
+  const highestTicket = await prisma.transaction.findFirst({
+    orderBy: {
+      receiptNumber: "desc",
+    },
+    select: {
+      receiptNumber: true,
+    },
+  });
+
+  return highestTicket ? highestTicket.receiptNumber : 1000;
+};
