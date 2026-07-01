@@ -78,7 +78,7 @@ model Transaction {
   vehicleNumber String
   customerName  String
 
-  netWeight   Float
+  quantity    Float       @default(0)
   rateApplied Float
   paymentType PaymentType @default(CREDIT)
   totalAmount Float       @default(0.00)

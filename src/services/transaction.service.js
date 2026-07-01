@@ -8,7 +8,7 @@ export const createTransactionRecord = async ({
   receiptNumber,
   vehicleNumber,
   customerName,
-  netWeight,
+  quantity,
   rateApplied,
   paymentType,
   totalAmount,
@@ -33,15 +33,15 @@ export const createTransactionRecord = async ({
       "Either rate or amount is required for CASH payment",
     );
 
-  if (!rateApplied) rateApplied = totalAmount / netWeight;
+  if (!rateApplied) rateApplied = totalAmount / quantity;
   if (paymentType && paymentType.toUpperCase() == "CASH" && !totalAmount)
-    totalAmount = rateApplied * netWeight;
+    totalAmount = rateApplied * quantity;
 
   const newTransaction = await prisma.transaction.create({
     data: {
       vehicleNumber: vehicleNumber.toUpperCase().trim(),
       customerName: customerName.trim(),
-      netWeight,
+      quantity,
       rateApplied,
       totalAmount,
       clerkId,

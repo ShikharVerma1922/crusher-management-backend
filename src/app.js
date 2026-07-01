@@ -38,9 +38,8 @@ app.use("/api/transactions", transactionRoutes);
 app.use("/api/materials", materialRoutes);
 app.use("/api/void-requests", voidRoutes);
 app.use("/api/analytics", analyticsRoutes);
-app.get("/api/test", (req, res) => {
-  return res.send("Hello Shikhar");
-  console.log("Hello world");
+app.get("/api/is-online", (req, res) => {
+  return res.status(200).json({ isOnline: true });
 });
 
 app.use(errorHandler);
