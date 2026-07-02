@@ -1,3 +1,4 @@
+import { startsWith } from "zod";
 import prisma from "../config/prisma.js";
 import { ApiError } from "../utils/ApiError.js";
 
@@ -90,43 +91,81 @@ export const getGlobalTransactions = async ({
   page = 1,
   limit = 10,
   search,
+  material,
   startDate,
   endDate,
 }) => {
   const skip = (page - 1) * limit;
 
-  // Build dynamic filtering conditions for Prisma
   const whereClause = { isVoided: false };
 
-  // 1. Multi-field text search (Vehicle number or Customer Name)
   if (search) {
+    const formattedSearch = search.trim();
+
     whereClause.OR = [
-      { vehicleNumber: { contains: search.toUpperCase().trim() } },
-      { customerName: { contains: search, mode: "insensitive" } },
-      { receiptNumber: { contains: search, mode: "insensitive" } },
+      { vehicleNumber: { contains: formattedSearch.toUpperCase().trim() } },
+      { customerName: { contains: formattedSearch, mode: "insensitive" } },
+      { receiptNumber: { startsWith: formattedSearch, mode: "insensitive" } },
     ];
   }
 
-  // 2. Date Range filters
+  if (material) {
+    // If your schema stores materialId directly on the transaction:
+    whereClause.materialId = material;
+
+    // OR if you match by material name string instead, uncomment below:
+    // whereClause.material = { name: { contains: material, mode: "insensitive" } };
+  }
+
   if (startDate || endDate) {
     whereClause.createdAt = {};
     if (startDate) whereClause.createdAt.gte = new Date(startDate);
     if (endDate) whereClause.createdAt.lte = new Date(endDate);
   }
 
-  const [transactions, totalCount] = await prisma.$transaction([
-    prisma.transaction.findMany({
-      where: whereClause,
-      skip,
-      take: parseInt(limit),
-      orderBy: { createdAt: "desc" },
-      include: {
-        material: { select: { name: true } },
-        clerk: { select: { name: true } },
-      },
-    }),
-    prisma.transaction.count({ where: whereClause }),
-  ]);
+  // 🚀 Added raw groupings to aggregate financial metrics in parallel execution
+  const [transactions, totalCount, totalsAggregation, cashAggregation] =
+    await prisma.$transaction([
+      // Paginated Transactions list
+      prisma.transaction.findMany({
+        where: whereClause,
+        skip,
+        take: parseInt(limit),
+        orderBy: { createdAt: "desc" },
+        include: {
+          material: { select: { name: true } },
+          clerk: { select: { name: true } },
+        },
+      }),
+
+      // Total Count for Pagination
+      prisma.transaction.count({ where: whereClause }),
+
+      // Total Overall Quantity and Cumulative Amount across ALL matching records
+      prisma.transaction.aggregate({
+        where: whereClause,
+        _sum: {
+          quantity: true,
+          totalAmount: true,
+        },
+      }),
+
+      // Total Cash Calculation
+      prisma.transaction.aggregate({
+        where: {
+          ...whereClause,
+          paymentType: "CASH",
+        },
+        _sum: {
+          totalAmount: true,
+        },
+      }),
+    ]);
+
+  const totalQuantity = totalsAggregation._sum.quantity || 0;
+  const overallTotalAmount = totalsAggregation._sum.totalAmount || 0;
+  const totalCash = cashAggregation._sum.totalAmount || 0;
+  const totalCredit = overallTotalAmount - totalCash;
 
   return {
     transactions,
@@ -134,6 +173,9 @@ export const getGlobalTransactions = async ({
       totalCount,
       currentPage: parseInt(page),
       totalPages: Math.ceil(totalCount / limit),
+      totalQuantity,
+      totalCash,
+      totalCredit,
     },
   };
 };

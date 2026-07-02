@@ -67,12 +67,13 @@ export const processTransaction = asyncHandler(async (req, res) => {
  * @access  Private (Supervisor / Owner Only)
  */
 export const getAllTransactions = asyncHandler(async (req, res) => {
-  const { page, limit, search, startDate, endDate } = req.query;
+  const { page, limit, search, startDate, endDate, material } = req.query;
 
   const data = await transactionService.getGlobalTransactions({
     page,
     limit,
     search,
+    material,
     startDate,
     endDate,
   });
