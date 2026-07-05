@@ -7,7 +7,7 @@ const router = express.Router();
 
 // Public route for signing in
 router.post("/login", login);
-router.post("/register", protect, authorize("OWNER"), register);
+router.post("/register", register);
 router.post("/logout", protect, logout);
 
 export default router;
