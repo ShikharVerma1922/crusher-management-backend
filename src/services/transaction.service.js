@@ -34,7 +34,9 @@ export const createTransactionRecord = async ({
       "Either rate or amount is required for CASH payment",
     );
 
-  if (!rateApplied) rateApplied = totalAmount / quantity;
+  if (!rateApplied) {
+    rateApplied = Math.trunc((totalAmount / quantity) * 100) / 100;
+  }
   if (paymentType && paymentType.toUpperCase() == "CASH" && !totalAmount)
     totalAmount = rateApplied * quantity;
 
@@ -106,6 +108,7 @@ export const getGlobalTransactions = async ({
       { vehicleNumber: { contains: formattedSearch.toUpperCase().trim() } },
       { customerName: { contains: formattedSearch, mode: "insensitive" } },
       { receiptNumber: { startsWith: formattedSearch, mode: "insensitive" } },
+      { site: { contains: formattedSearch, mode: "insensitive" } },
     ];
   }
 
@@ -211,4 +214,21 @@ export const getMaxReceiptNumber = async () => {
   });
 
   return highestTicket ? highestTicket.receiptNumber : 1000;
+};
+
+export const editCreditAmount = async ({ transactionId, amount, quantity }) => {
+  const transaction = await prisma.transaction.update({
+    where: {
+      id: transactionId,
+      paymentType: "CREDIT",
+    },
+    data: {
+      totalAmount: amount,
+      rateApplied: amount / quantity,
+    },
+  });
+
+  if (!transaction) throw new ApiError(400, "Transaction does not exist.");
+
+  return transaction;
 };

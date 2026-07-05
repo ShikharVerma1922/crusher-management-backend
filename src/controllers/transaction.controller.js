@@ -165,3 +165,16 @@ export const getLatestReceiptNum = asyncHandler(async (req, res) => {
       ),
     );
 });
+
+export const handleUpdateCreditAmount = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { amount, quantity } = req.body;
+  const response = await transactionService.editCreditAmount({
+    transactionId: id,
+    amount,
+    quantity,
+  });
+  return res
+    .status(200)
+    .json(new ApiResponse(200, response, "Amount updated successfully."));
+});

@@ -18,21 +18,17 @@ export const getSummaryMetrics = async (startDateStr, endDateStr) => {
   const aggregates = await prisma.transaction.aggregate({
     where: whereClause,
     _sum: {
-      netWeight: true, // Total weight in KG
-      totalAmount: true, // Total revenue in INR
+      quantity: true,
+      totalAmount: true,
     },
     _count: {
-      id: true, // Total number of truck loads cleared
+      id: true,
     },
   });
 
-  // Convert Net Weight sum safely from KG to Metric Tons (1 MT = 1000 KG)
-  const totalWeightInKG = aggregates._sum.netWeight || 0;
-  const totalTonnage = Math.round((totalWeightInKG / 1000) * 100) / 100;
-
   return {
     totalRevenue: aggregates._sum.totalAmount || 0,
-    totalTonnageShifted: totalTonnage,
+    totalQuantity: aggregates._sum.quantity || 0,
     totalTrucksCleared: aggregates._count.id || 0,
   };
 };
@@ -40,13 +36,20 @@ export const getSummaryMetrics = async (startDateStr, endDateStr) => {
 /**
  * Breakdown plant output and revenue segmented by individual material types
  */
-export const getMaterialBreakdownMetrics = async () => {
+export const getMaterialBreakdownMetrics = async (startDateStr, endDateStr) => {
+  const whereClause = { isVoided: false };
+
+  if (startDateStr || endDateStr) {
+    whereClause.createdAt = {};
+    if (startDateStr) whereClause.createdAt.gte = new Date(startDateStr);
+    if (endDateStr) whereClause.createdAt.lte = new Date(endDateStr);
+  }
   // Group rows by material configuration layout structures
   const dataGroups = await prisma.transaction.groupBy({
     by: ["materialId"],
-    where: { isVoided: false },
+    where: whereClause,
     _sum: {
-      netWeight: true,
+      quantity: true,
       totalAmount: true,
     },
     _count: {
@@ -66,8 +69,7 @@ export const getMaterialBreakdownMetrics = async () => {
     materialId: group.materialId,
     materialName: materialMap.get(group.materialId) || "Unknown Category",
     revenueGenerated: group._sum.totalAmount || 0,
-    tonnageShifted:
-      Math.round(((group._sum.netWeight || 0) / 1000) * 100) / 100,
+    totalQuantity: group._sum.quantity || 0,
     truckCount: group._count.id || 0,
   }));
 };
@@ -85,12 +87,10 @@ export const getAnalyticsTrendData = async (preset) => {
   } else if (preset === "last_6_months") {
     startDate.setMonth(now.getMonth() - 6);
   } else {
-    // Default fallback boundary: Last 30 Days
     startDate.setDate(now.getDate() - 30);
   }
 
-  // Clean hours to look back safely from the absolute start of that calendar morning
-  startDate.setHours(0, 0, 0, 0);
+  startDate.setHours(9, 0, 0, 0);
 
   // 2. Query the ledger database using high-speed Prisma groupings
   const dailyRawGroups = await prisma.transaction.groupBy({
@@ -100,8 +100,8 @@ export const getAnalyticsTrendData = async (preset) => {
       createdAt: { gte: startDate },
     },
     _sum: {
-      netWeight: true, // Combined mass in KG
-      totalAmount: true, // Combined billing value in INR
+      quantity: true,
+      totalAmount: true,
     },
     orderBy: {
       createdAt: "asc",
@@ -119,19 +119,18 @@ export const getAnalyticsTrendData = async (preset) => {
     const formattedLabel = `${day} ${month}`;
 
     const revenueAmount = group._sum.totalAmount || 0;
-    const weightInKG = group._sum.netWeight || 0;
-    const tonnageAmount = Math.round((weightInKG / 1000) * 100) / 100;
+    const totalQuantity = group._sum.quantity || 0;
 
     if (!bucketMap[formattedLabel]) {
       bucketMap[formattedLabel] = {
         timelineLabel: formattedLabel,
         revenue: 0,
-        tonnage: 0,
+        quantity: 0,
       };
     }
 
     bucketMap[formattedLabel].revenue += revenueAmount;
-    bucketMap[formattedLabel].tonnage += tonnageAmount;
+    bucketMap[formattedLabel].quantity += totalQuantity;
   });
 
   // Return values compiled into a sorted chronological array sequence

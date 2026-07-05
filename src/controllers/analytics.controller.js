@@ -20,8 +20,10 @@ export const getDashboardSummary = async (req, res) => {
     );
 
     // Fallback: Pass dates down into material breakdowns if you want that matching range filtered too!
-    const materialMetrics =
-      await analyticsService.getMaterialBreakdownMetrics();
+    const materialMetrics = await analyticsService.getMaterialBreakdownMetrics(
+      startDate,
+      endDate,
+    );
 
     return res.status(200).json({
       success: true,

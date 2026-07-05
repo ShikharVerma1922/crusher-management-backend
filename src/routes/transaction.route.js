@@ -6,6 +6,7 @@ import {
   getShiftTransactions,
   triggerManualReprint,
   getLatestReceiptNum,
+  handleUpdateCreditAmount,
 } from "../controllers/transaction.controller.js";
 import { protect, authorize } from "../middlewares/auth.middleware.js";
 
@@ -25,5 +26,13 @@ router.post("/:id/reprint", protect, triggerManualReprint);
 
 // 5. Get latest receipt number
 router.get("/latest-receipt-num", protect, getLatestReceiptNum);
+
+// 6. Update credit amount
+router.patch(
+  "/:id/credit-amount",
+  protect,
+  authorize("OWNER"),
+  handleUpdateCreditAmount,
+);
 
 export default router;
