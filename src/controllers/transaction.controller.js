@@ -90,6 +90,31 @@ export const getAllTransactions = asyncHandler(async (req, res) => {
 });
 
 /**
+ * @desc    Get complete transaction history ledger for export
+ * @route   GET /api/transactions/export
+ * @access  Private (Supervisor / Owner Only)
+ */
+export const exportAllTransactions = asyncHandler(async (req, res) => {
+  const { search, startDate, endDate, material } = req.query;
+  const data = await transactionService.exportGlobalTransactions({
+    search,
+    material,
+    startDate,
+    endDate,
+  });
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        data,
+        "Global transaction registry records compiled successfully for export",
+      ),
+    );
+});
+
+/**
  * @desc    Get restricted shift-only records for logged-in clerk
  * @route   GET /api/transactions/shift
  * @access  Private (Clerk Only)

@@ -232,3 +232,82 @@ export const editCreditAmount = async ({ transactionId, amount, quantity }) => {
 
   return transaction;
 };
+
+/**
+ * Fetch all matching transactions for Excel export (no pagination)
+ */
+export const exportGlobalTransactions = async ({
+  search,
+  material,
+  startDate,
+  endDate,
+}) => {
+  const whereClause = { isVoided: false };
+
+  if (search) {
+    const formattedSearch = search.trim();
+
+    whereClause.OR = [
+      {
+        vehicleNumber: {
+          contains: formattedSearch.toUpperCase(),
+        },
+      },
+      {
+        customerName: {
+          contains: formattedSearch,
+          mode: "insensitive",
+        },
+      },
+      {
+        receiptNumber: {
+          startsWith: formattedSearch,
+          mode: "insensitive",
+        },
+      },
+      {
+        site: {
+          contains: formattedSearch,
+          mode: "insensitive",
+        },
+      },
+    ];
+  }
+
+  if (material) {
+    whereClause.materialId = material;
+  }
+
+  if (startDate || endDate) {
+    whereClause.createdAt = {};
+
+    if (startDate) {
+      whereClause.createdAt.gte = new Date(startDate);
+    }
+
+    if (endDate) {
+      whereClause.createdAt.lte = new Date(endDate);
+    }
+  }
+
+  const transactions = await prisma.transaction.findMany({
+    where: whereClause,
+    orderBy: {
+      createdAt: "asc",
+    },
+    include: {
+      material: {
+        select: {
+          name: true,
+        },
+      },
+      clerk: {
+        select: {
+          name: true,
+        },
+      },
+    },
+  });
+
+  return transactions;
+};

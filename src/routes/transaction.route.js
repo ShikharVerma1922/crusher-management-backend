@@ -7,6 +7,7 @@ import {
   triggerManualReprint,
   getLatestReceiptNum,
   handleUpdateCreditAmount,
+  exportAllTransactions,
 } from "../controllers/transaction.controller.js";
 import { protect, authorize } from "../middlewares/auth.middleware.js";
 
@@ -33,6 +34,14 @@ router.patch(
   protect,
   authorize("OWNER"),
   handleUpdateCreditAmount,
+);
+
+// 7. Export full ledger list
+router.get(
+  "/export",
+  protect,
+  authorize("SUPERVISOR", "OWNER"),
+  exportAllTransactions,
 );
 
 export default router;
