@@ -1,4 +1,3 @@
-import { custom, startsWith } from "zod";
 import prisma from "../config/prisma.js";
 import { ApiError } from "../utils/ApiError.js";
 
@@ -8,7 +7,6 @@ import { ApiError } from "../utils/ApiError.js";
 export const createTransactionRecord = async ({
   receiptNumber,
   vehicleNumber,
-  customerId,
   customerName,
   materialQuantity,
   materialRate = 0,
@@ -22,92 +20,131 @@ export const createTransactionRecord = async ({
   clerkId,
   rateStatus = "SETTLED",
 }) => {
-  // 1. Strict Validation Check
+  const normalizedReceiptNumber = receiptNumber?.trim();
+  const normalizedVehicleNumber = vehicleNumber?.toUpperCase().trim();
+  const normalizedCustomerName = customerName?.trim();
+  const normalizedRateStatus = (rateStatus || "SETTLED").toUpperCase();
+
   if (
-    !receiptNumber ||
-    !vehicleNumber ||
-    !customerId ||
-    !customerName ||
-    !materialQuantity ||
-    !materialId ||
+    !normalizedReceiptNumber ||
+    !normalizedVehicleNumber ||
+    !normalizedCustomerName ||
+    materialQuantity === undefined ||
+    materialQuantity === null ||
+    materialQuantity === "" ||
     !paymentMode
   ) {
     throw new ApiError(400, "Required operational parameters are missing.");
   }
 
-  // 2. Validate Material Asset
   const material = await prisma.material.findUnique({
     where: { id: materialId },
   });
-  if (!material || !material.isActive) {
+
+  if (!material?.isActive) {
     throw new ApiError(
       404,
       "Selected material is invalid or no longer active.",
     );
   }
 
-  // 3. Cash Gate Constraints
-  const targetRateStatus = rateStatus?.toUpperCase() || "SETTLED";
-  if (paymentMode === "CASH" && targetRateStatus === "OPEN") {
+  if (paymentMode === "CASH" && normalizedRateStatus === "OPEN") {
     throw new ApiError(
       400,
       "CASH payment tickets must have an immediate settled rate.",
     );
   }
 
-  // 4. Mathematical Computations
+  const parsedMaterialQuantity = Number(materialQuantity);
+  const parsedMaterialRate = Number(materialRate);
+  const parsedRoyaltyQuantity = Number(royaltyQuantity);
+  const parsedRoyaltyRate = Number(royaltyRate);
+  const parsedAmountPaid = Number(amountPaid);
+
   let materialAmount = 0;
   let royaltyAmount = 0;
 
-  if (targetRateStatus === "SETTLED") {
-    materialAmount = Number(materialRate) * Number(materialQuantity);
+  if (normalizedRateStatus === "SETTLED") {
+    materialAmount = parsedMaterialQuantity * parsedMaterialRate;
   }
 
-  if (royaltyQuantity && royaltyRate) {
-    royaltyAmount = Number(royaltyQuantity) * Number(royaltyRate);
+  if (parsedRoyaltyQuantity > 0 && parsedRoyaltyRate > 0) {
+    royaltyAmount = parsedRoyaltyQuantity * parsedRoyaltyRate;
   }
 
   const grandTotal = materialAmount + royaltyAmount;
-  const balance = grandTotal - Number(amountPaid);
+  const balance = grandTotal - parsedAmountPaid;
 
-  // 5. Atomic Database Transaction (Maintains Ledger Safety)
-  const newTransaction = await prisma.$transaction(async (tx) => {
-    // A. Upsert the customer account profile safely initializing balances
-    await tx.customer.upsert({
-      where: { id: customerId },
-      update: {
-        outstandingBalance: {
-          increment: balance,
-        },
-      },
-      create: {
-        id: customerId, // Retain client-generated UUID for offline additions
-        name: customerName,
-        outstandingBalance: balance, // Capture initial debt footprints on spot
-      },
+  return prisma.$transaction(async (tx) => {
+    let customer = await tx.customer.findUnique({
+      where: { name: normalizedCustomerName },
     });
 
-    // B. Generate the locked transaction ticket log
-    return await tx.transaction.create({
+    if (!customer) {
+      try {
+        customer = await tx.customer.create({
+          data: {
+            name: normalizedCustomerName,
+            outstandingBalance: balance,
+          },
+        });
+      } catch (error) {
+        if (error?.code !== "P2002") {
+          throw error;
+        }
+
+        customer = await tx.customer.update({
+          where: { name: normalizedCustomerName },
+          data: {
+            outstandingBalance: {
+              increment: balance,
+            },
+          },
+        });
+      }
+    } else {
+      customer = await tx.customer.update({
+        where: { name: normalizedCustomerName },
+        data: {
+          outstandingBalance: {
+            increment: balance,
+          },
+        },
+      });
+    }
+
+    return tx.transaction.create({
       data: {
-        receiptNumber: receiptNumber.trim(),
-        vehicleNumber: vehicleNumber.toUpperCase().trim(),
-        customerId,
-        materialQuantity,
-        materialRate: targetRateStatus === "OPEN" ? 0 : materialRate,
+        receiptNumber: normalizedReceiptNumber,
+        vehicleNumber: normalizedVehicleNumber,
+        materialQuantity: parsedMaterialQuantity,
+        materialRate: normalizedRateStatus === "OPEN" ? 0 : parsedMaterialRate,
         materialAmount,
-        royaltyQuantity,
-        royaltyRate,
+        royaltyQuantity: parsedRoyaltyQuantity,
+        royaltyRate: parsedRoyaltyRate,
         royaltyAmount,
         grandTotal,
         paymentMode,
-        amountPaid,
+        amountPaid: parsedAmountPaid,
         balance,
-        rateStatus: targetRateStatus,
-        clerkId,
-        materialId,
+        rateStatus: normalizedRateStatus,
         site,
         createdAt: createdAt ? new Date(createdAt) : new Date(),
+        customer: {
+          connect: {
+            id: customer.id,
+          },
+        },
+        clerk: {
+          connect: {
+            id: clerkId,
+          },
+        },
+        material: {
+          connect: {
+            id: material.id,
+          },
+        },
       },
       include: {
         material: { select: { name: true } },
@@ -116,8 +153,6 @@ export const createTransactionRecord = async ({
       },
     });
   });
-
-  return newTransaction;
 };
 
 /**

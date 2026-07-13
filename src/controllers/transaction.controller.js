@@ -13,7 +13,7 @@ export const processTransaction = asyncHandler(async (req, res) => {
   const {
     receiptNumber,
     vehicleNumber,
-    customerId,
+    // customerId,
     customerName,
     materialQuantity,
     materialRate,
@@ -29,7 +29,7 @@ export const processTransaction = asyncHandler(async (req, res) => {
   const transaction = await transactionService.createTransactionRecord({
     receiptNumber,
     vehicleNumber,
-    customerId,
+    // customerId,
     customerName,
     materialQuantity,
     materialRate,
