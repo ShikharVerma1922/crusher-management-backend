@@ -1,6 +1,6 @@
 import prisma from "../src/config/prisma.js";
 async function main() {
-  const targetClerkId = "49385727-9511-4ed8-8049-e974f5511533";
+  const targetClerkId = "49385727-9511-4ed8-8049-e974f5511533"; // DELETE THIS
   //   await prisma.material.deleteMany({});
   console.log("🪨 Synchronizing material items...");
   const materialsList = [

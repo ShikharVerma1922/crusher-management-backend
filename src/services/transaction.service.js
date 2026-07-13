@@ -1,4 +1,4 @@
-import { startsWith } from "zod";
+import { custom, startsWith } from "zod";
 import prisma from "../config/prisma.js";
 import { ApiError } from "../utils/ApiError.js";
 
@@ -8,60 +8,113 @@ import { ApiError } from "../utils/ApiError.js";
 export const createTransactionRecord = async ({
   receiptNumber,
   vehicleNumber,
+  customerId,
   customerName,
-  quantity,
-  rateApplied,
-  paymentType,
-  totalAmount,
+  materialQuantity,
+  materialRate = 0,
+  royaltyQuantity = 0,
+  royaltyRate = 0,
+  amountPaid = 0,
+  paymentMode,
   site,
   materialId,
   createdAt,
   clerkId,
+  rateStatus = "SETTLED",
 }) => {
+  // 1. Strict Validation Check
+  if (
+    !receiptNumber ||
+    !vehicleNumber ||
+    !customerId ||
+    !customerName ||
+    !materialQuantity ||
+    !materialId ||
+    !paymentMode
+  ) {
+    throw new ApiError(400, "Required operational parameters are missing.");
+  }
+
+  // 2. Validate Material Asset
   const material = await prisma.material.findUnique({
     where: { id: materialId },
   });
   if (!material || !material.isActive) {
-    throw new ApiError(404, "Selected material is invalid or no longer active");
+    throw new ApiError(
+      404,
+      "Selected material is invalid or no longer active.",
+    );
   }
 
-  if (!(receiptNumber && vehicleNumber && customerName))
-    throw new ApiError(400, "All the filed are required");
-
-  if (paymentType == "CASH" && !(rateApplied || totalAmount))
+  // 3. Cash Gate Constraints
+  const targetRateStatus = rateStatus?.toUpperCase() || "SETTLED";
+  if (paymentMode === "CASH" && targetRateStatus === "OPEN") {
     throw new ApiError(
       400,
-      "Either rate or amount is required for CASH payment",
+      "CASH payment tickets must have an immediate settled rate.",
     );
-
-  if (!rateApplied) {
-    rateApplied = Math.trunc((totalAmount / quantity) * 100) / 100;
   }
-  if (paymentType && paymentType.toUpperCase() == "CASH" && !totalAmount)
-    totalAmount = rateApplied * quantity;
 
-  const newTransaction = await prisma.transaction.create({
-    data: {
-      vehicleNumber: vehicleNumber.toUpperCase().trim(),
-      customerName: customerName.trim(),
-      quantity,
-      rateApplied,
-      totalAmount,
-      clerkId,
-      materialId,
-      site,
-      paymentType,
-      receiptNumber,
-      createdAt,
-    },
-    include: {
-      material: {
-        select: { name: true },
+  // 4. Mathematical Computations
+  let materialAmount = 0;
+  let royaltyAmount = 0;
+
+  if (targetRateStatus === "SETTLED") {
+    materialAmount = Number(materialRate) * Number(materialQuantity);
+  }
+
+  if (royaltyQuantity && royaltyRate) {
+    royaltyAmount = Number(royaltyQuantity) * Number(royaltyRate);
+  }
+
+  const grandTotal = materialAmount + royaltyAmount;
+  const balance = grandTotal - Number(amountPaid);
+
+  // 5. Atomic Database Transaction (Maintains Ledger Safety)
+  const newTransaction = await prisma.$transaction(async (tx) => {
+    // A. Upsert the customer account profile safely initializing balances
+    await tx.customer.upsert({
+      where: { id: customerId },
+      update: {
+        outstandingBalance: {
+          increment: balance,
+        },
       },
-      clerk: {
-        select: { name: true },
+      create: {
+        id: customerId, // Retain client-generated UUID for offline additions
+        name: customerName,
+        outstandingBalance: balance, // Capture initial debt footprints on spot
       },
-    },
+    });
+
+    // B. Generate the locked transaction ticket log
+    return await tx.transaction.create({
+      data: {
+        receiptNumber: receiptNumber.trim(),
+        vehicleNumber: vehicleNumber.toUpperCase().trim(),
+        customerId,
+        materialQuantity,
+        materialRate: targetRateStatus === "OPEN" ? 0 : materialRate,
+        materialAmount,
+        royaltyQuantity,
+        royaltyRate,
+        royaltyAmount,
+        grandTotal,
+        paymentMode,
+        amountPaid,
+        balance,
+        rateStatus: targetRateStatus,
+        clerkId,
+        materialId,
+        site,
+        createdAt: createdAt ? new Date(createdAt) : new Date(),
+      },
+      include: {
+        material: { select: { name: true } },
+        clerk: { select: { name: true } },
+        customer: { select: { name: true } },
+      },
+    });
   });
 
   return newTransaction;
@@ -148,8 +201,8 @@ export const getGlobalTransactions = async ({
       prisma.transaction.aggregate({
         where: whereClause,
         _sum: {
-          quantity: true,
-          totalAmount: true,
+          materialQuantity: true,
+          materialAmount: true,
         },
       }),
 
@@ -157,17 +210,17 @@ export const getGlobalTransactions = async ({
       prisma.transaction.aggregate({
         where: {
           ...whereClause,
-          paymentType: "CASH",
+          paymentMode: "CASH",
         },
         _sum: {
-          totalAmount: true,
+          materialAmount: true,
         },
       }),
     ]);
 
-  const totalQuantity = totalsAggregation._sum.quantity || 0;
-  const overallTotalAmount = totalsAggregation._sum.totalAmount || 0;
-  const totalCash = cashAggregation._sum.totalAmount || 0;
+  const totalQuantity = totalsAggregation._sum.materialQuantity || 0;
+  const overallTotalAmount = totalsAggregation._sum.materialAmount || 0;
+  const totalCash = cashAggregation._sum.materialAmount || 0;
   const totalCredit = overallTotalAmount - totalCash;
 
   return {
@@ -216,15 +269,19 @@ export const getMaxReceiptNumber = async () => {
   return highestTicket ? highestTicket.receiptNumber : 1000;
 };
 
-export const editCreditAmount = async ({ transactionId, amount, quantity }) => {
+export const editCreditAmount = async ({
+  transactionId,
+  amount,
+  materialQuantity,
+}) => {
   const transaction = await prisma.transaction.update({
     where: {
       id: transactionId,
-      paymentType: "CREDIT",
+      paymentMode: "CREDIT",
     },
     data: {
-      totalAmount: amount,
-      rateApplied: amount / quantity,
+      materialAmount: amount,
+      materialRate: amount / materialQuantity,
     },
   });
 
