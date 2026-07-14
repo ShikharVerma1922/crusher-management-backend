@@ -1,4 +1,3 @@
-import { startsWith } from "zod";
 import prisma from "../config/prisma.js";
 import { ApiError } from "../utils/ApiError.js";
 
@@ -9,62 +8,151 @@ export const createTransactionRecord = async ({
   receiptNumber,
   vehicleNumber,
   customerName,
-  quantity,
-  rateApplied,
-  paymentType,
-  totalAmount,
+  materialQuantity,
+  materialRate = 0,
+  royaltyQuantity = 0,
+  royaltyRate = 0,
+  amountPaid = 0,
+  paymentMode,
   site,
   materialId,
   createdAt,
   clerkId,
+  rateStatus = "SETTLED",
 }) => {
+  const normalizedReceiptNumber = receiptNumber?.trim();
+  const normalizedVehicleNumber = vehicleNumber?.toUpperCase().trim();
+  const normalizedCustomerName = customerName?.trim();
+  const normalizedRateStatus = (rateStatus || "SETTLED").toUpperCase();
+
+  if (
+    !normalizedReceiptNumber ||
+    !normalizedVehicleNumber ||
+    !normalizedCustomerName ||
+    materialQuantity === undefined ||
+    materialQuantity === null ||
+    materialQuantity === "" ||
+    !paymentMode
+  ) {
+    throw new ApiError(400, "Required operational parameters are missing.");
+  }
+
   const material = await prisma.material.findUnique({
     where: { id: materialId },
   });
-  if (!material || !material.isActive) {
-    throw new ApiError(404, "Selected material is invalid or no longer active");
+
+  if (!material?.isActive) {
+    throw new ApiError(
+      404,
+      "Selected material is invalid or no longer active.",
+    );
   }
 
-  if (!(receiptNumber && vehicleNumber && customerName))
-    throw new ApiError(400, "All the filed are required");
-
-  if (paymentType == "CASH" && !(rateApplied || totalAmount))
+  if (paymentMode === "CASH" && normalizedRateStatus === "OPEN") {
     throw new ApiError(
       400,
-      "Either rate or amount is required for CASH payment",
+      "CASH payment tickets must have an immediate settled rate.",
     );
-
-  if (!rateApplied) {
-    rateApplied = Math.trunc((totalAmount / quantity) * 100) / 100;
   }
-  if (paymentType && paymentType.toUpperCase() == "CASH" && !totalAmount)
-    totalAmount = rateApplied * quantity;
 
-  const newTransaction = await prisma.transaction.create({
-    data: {
-      vehicleNumber: vehicleNumber.toUpperCase().trim(),
-      customerName: customerName.trim(),
-      quantity,
-      rateApplied,
-      totalAmount,
-      clerkId,
-      materialId,
-      site,
-      paymentType,
-      receiptNumber,
-      createdAt,
-    },
-    include: {
-      material: {
-        select: { name: true },
+  const parsedMaterialQuantity = Number(materialQuantity);
+  const parsedMaterialRate = Number(materialRate);
+  const parsedRoyaltyQuantity = Number(royaltyQuantity);
+  const parsedRoyaltyRate = Number(royaltyRate);
+  const parsedAmountPaid = Number(amountPaid);
+
+  let materialAmount = 0;
+  let royaltyAmount = 0;
+
+  if (normalizedRateStatus === "SETTLED") {
+    materialAmount = parsedMaterialQuantity * parsedMaterialRate;
+  }
+
+  if (parsedRoyaltyQuantity > 0 && parsedRoyaltyRate > 0) {
+    royaltyAmount = parsedRoyaltyQuantity * parsedRoyaltyRate;
+  }
+
+  const grandTotal = materialAmount + royaltyAmount;
+  const balance = grandTotal - parsedAmountPaid;
+
+  return prisma.$transaction(async (tx) => {
+    let customer = await tx.customer.findUnique({
+      where: { name: normalizedCustomerName },
+    });
+
+    if (!customer) {
+      try {
+        customer = await tx.customer.create({
+          data: {
+            name: normalizedCustomerName,
+            outstandingBalance: balance,
+          },
+        });
+      } catch (error) {
+        if (error?.code !== "P2002") {
+          throw error;
+        }
+
+        customer = await tx.customer.update({
+          where: { name: normalizedCustomerName },
+          data: {
+            outstandingBalance: {
+              increment: balance,
+            },
+          },
+        });
+      }
+    } else {
+      customer = await tx.customer.update({
+        where: { name: normalizedCustomerName },
+        data: {
+          outstandingBalance: {
+            increment: balance,
+          },
+        },
+      });
+    }
+
+    return tx.transaction.create({
+      data: {
+        receiptNumber: normalizedReceiptNumber,
+        vehicleNumber: normalizedVehicleNumber,
+        materialQuantity: parsedMaterialQuantity,
+        materialRate: normalizedRateStatus === "OPEN" ? 0 : parsedMaterialRate,
+        materialAmount,
+        royaltyQuantity: parsedRoyaltyQuantity,
+        royaltyRate: parsedRoyaltyRate,
+        royaltyAmount,
+        grandTotal,
+        paymentMode,
+        amountPaid: parsedAmountPaid,
+        balance,
+        rateStatus: normalizedRateStatus,
+        site,
+        createdAt: createdAt ? new Date(createdAt) : new Date(),
+        customer: {
+          connect: {
+            id: customer.id,
+          },
+        },
+        clerk: {
+          connect: {
+            id: clerkId,
+          },
+        },
+        material: {
+          connect: {
+            id: material.id,
+          },
+        },
       },
-      clerk: {
-        select: { name: true },
+      include: {
+        material: { select: { name: true } },
+        clerk: { select: { name: true } },
+        customer: { select: { name: true } },
       },
-    },
+    });
   });
-
-  return newTransaction;
 };
 
 /**
@@ -148,8 +236,8 @@ export const getGlobalTransactions = async ({
       prisma.transaction.aggregate({
         where: whereClause,
         _sum: {
-          quantity: true,
-          totalAmount: true,
+          materialQuantity: true,
+          materialAmount: true,
         },
       }),
 
@@ -157,17 +245,17 @@ export const getGlobalTransactions = async ({
       prisma.transaction.aggregate({
         where: {
           ...whereClause,
-          paymentType: "CASH",
+          paymentMode: "CASH",
         },
         _sum: {
-          totalAmount: true,
+          materialAmount: true,
         },
       }),
     ]);
 
-  const totalQuantity = totalsAggregation._sum.quantity || 0;
-  const overallTotalAmount = totalsAggregation._sum.totalAmount || 0;
-  const totalCash = cashAggregation._sum.totalAmount || 0;
+  const totalQuantity = totalsAggregation._sum.materialQuantity || 0;
+  const overallTotalAmount = totalsAggregation._sum.materialAmount || 0;
+  const totalCash = cashAggregation._sum.materialAmount || 0;
   const totalCredit = overallTotalAmount - totalCash;
 
   return {
@@ -216,15 +304,19 @@ export const getMaxReceiptNumber = async () => {
   return highestTicket ? highestTicket.receiptNumber : 1000;
 };
 
-export const editCreditAmount = async ({ transactionId, amount, quantity }) => {
+export const editCreditAmount = async ({
+  transactionId,
+  amount,
+  materialQuantity,
+}) => {
   const transaction = await prisma.transaction.update({
     where: {
       id: transactionId,
-      paymentType: "CREDIT",
+      paymentMode: "CREDIT",
     },
     data: {
-      totalAmount: amount,
-      rateApplied: amount / quantity,
+      materialAmount: amount,
+      materialRate: amount / materialQuantity,
     },
   });
 

@@ -28,6 +28,11 @@ enum PaymentType {
   CREDIT
 }
 
+enum RateStatus {
+  SETTLED
+  OPEN
+}
+
 // ------------------------------------------------------
 // MODELS
 
@@ -46,6 +51,7 @@ model User {
   createdVoidRequests  VoidRequest[] @relation("RequestedByClerk")
   actionedVoidRequests VoidRequest[] @relation("ActionedByAdmin")
   shifts               Shift[]
+  payments             Payment[]     @relation("AdminReceivedPayments")
 }
 
 model Shift {
@@ -72,25 +78,69 @@ model Material {
   transactions Transaction[]
 }
 
+model Customer {
+  id                 String        @id @default(uuid())
+  name               String        @unique
+  outstandingBalance Float         @default(0) // Running tally of debt (grandTotal - all payments)
+  creditLimit        Float         @default(100000)
+  // Relations
+  transactions       Transaction[]
+  payments           Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Payment {
+  id            String  @id @default(uuid())
+  receiptNumber String  @unique
+  amountPaid    Float
+  paymentMode   String // "CASH", "BANK_TRANSFER", "UPI", "CHEQUE"
+  referenceNo   String?
+  remarks       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  customerId   String
+  customer     Customer @relation(fields: [customerId], references: [id])
+  receivedById String?
+  receivedBy   User?    @relation("AdminReceivedPayments", fields: [receivedById], references: [id])
+}
+
 model Transaction {
-  id            String @id @default(uuid())
-  receiptNumber String @unique
+  id            String  @id @default(uuid())
+  receiptNumber String  @unique
   vehicleNumber String
-  customerName  String
+  site          String?
 
-  quantity    Float       @default(0)
-  rateApplied Float
-  paymentType PaymentType @default(CREDIT)
-  totalAmount Float       @default(0.00)
+  // Material Details
+  materialQuantity Float @default(0)
+  materialRate     Float @default(0)
+  materialAmount   Float @default(0)
 
-  site String?
+  // Royalty Details
+  royaltyQuantity Float? @default(0)
+  royaltyRate     Float? @default(0)
+  royaltyAmount   Float? @default(0)
 
-  // Soft Delete and Status Tracking
+  // Financial Snapshots at Gate Out
+  grandTotal  Float       @default(0)
+  paymentMode PaymentType @default(CREDIT)
+  amountPaid  Float       @default(0)
+  balance     Float       @default(0)
+
+  rateStatus RateStatus @default(SETTLED)
+
+  // Operational Control Logs
   isVoided  Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
+  customerId  String
+  customer    Customer     @relation(fields: [customerId], references: [id])
   clerkId     String
   clerk       User         @relation("ClerkTransactions", fields: [clerkId], references: [id])
   materialId  String
