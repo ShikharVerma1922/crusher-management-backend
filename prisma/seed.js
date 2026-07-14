@@ -32,7 +32,8 @@ async function main() {
   // 3. 📊 TRANSACTION COLLECTION WITH ISOLATED INSERTION
   await prisma.voidRequest.deleteMany();
   await prisma.transaction.deleteMany();
-  console.log("🔄 Injecting transactions with dynamic ID tracking...");
+  console.log("Successfully deleted previous transactions.");
+  // console.log("🔄 Injecting transactions with dynamic ID tracking...");
 
   const rawTransactions = [
     {
@@ -270,46 +271,47 @@ async function main() {
     },
   ];
 
-  console.log("🔄 Injecting transactions one by one...");
-  let successCount = 0;
+  // console.log("🔄 Injecting transactions one by one...");
+  // let successCount = 0;
 
-  for (let i = 0; i < rawTransactions.length; i++) {
-    const tx = rawTransactions[i];
-    const resolvedId = matMap[tx.materialName];
+  // for (let i = 0; i < rawTransactions.length; i++) {
+  //   const tx = rawTransactions[i];
+  //   const resolvedId = matMap[tx.materialName];
 
-    try {
-      await prisma.transaction.create({
-        data: {
-          vehicleNumber: tx.vehicleNumber,
-          customerName: tx.customerName,
-          quantity: tx.quantity,
-          rateApplied: tx.rateApplied,
-          paymentType: tx.paymentType,
-          totalAmount: tx.totalAmount,
-          site: tx.site,
-          clerk: {
-            connect: { id: targetClerkId },
-          },
-          material: {
-            connect: { id: resolvedId },
-          },
-          receiptNumber: tx.receiptNumber,
-          createdAt: tx.createdAt,
-        },
-      });
-      successCount++;
-    } catch (err) {
-      console.error(
-        `\n🚨 INSERTION CRASH at index [${i}] (Receipt #${tx.receiptNumber})`,
-      );
-      console.error(`   Material Name: ${tx.materialName}`);
-      console.error(`   Resolved UUID: ${resolvedId}`);
-      console.error(`   Error Message: ${err.message}\n`);
-      process.exit(1);
-    }
-  }
+  //   try {
+  //     await prisma.transaction.create({
+  //       data: {
+  //         vehicleNumber: tx.vehicleNumber,
+  //         customerName: tx.customerName,
+  //         quantity: tx.quantity,
+  //         rateApplied: tx.rateApplied,
+  //         paymentType: tx.paymentType,
+  //         totalAmount: tx.totalAmount,
+  //         site: tx.site,
+  //         clerk: {
+  //           connect: { id: targetClerkId },
+  //         },
+  //         material: {
+  //           connect: { id: resolvedId },
+  //         },
+  //         receiptNumber: tx.receiptNumber,
+  //         createdAt: tx.createdAt,
+  //       },
+  //     });
+  //     successCount++;
+  //   } catch (err) {
+  //     console.error(
+  //       `\n🚨 INSERTION CRASH at index [${i}] (Receipt #${tx.receiptNumber})`,
+  //     );
+  //     console.error(`   Material Name: ${tx.materialName}`);
+  //     console.error(`   Resolved UUID: ${resolvedId}`);
+  //     console.error(`   Error Message: ${err.message}\n`);
+  //     process.exit(1);
+  //   }
+  // }
 
-  console.log(`\n✅ Success! Seed injected count: ${successCount}`);
+  // console.log(`\n✅ Success! Seed injected count: ${successCount}`);
+
 }
 
 main()
