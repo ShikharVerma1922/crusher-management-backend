@@ -65,15 +65,22 @@ export const createTransactionRecord = async ({
   let royaltyAmount = 0;
 
   if (normalizedRateStatus === "SETTLED") {
-    materialAmount = parsedMaterialQuantity * parsedMaterialRate;
+    materialAmount = Number(
+      (parsedMaterialQuantity * parsedMaterialRate).toFixed(2),
+    );
   }
 
   if (parsedRoyaltyQuantity > 0 && parsedRoyaltyRate > 0) {
-    royaltyAmount = parsedRoyaltyQuantity * parsedRoyaltyRate;
+    royaltyAmount = Number(
+      (parsedRoyaltyQuantity * parsedRoyaltyRate).toFixed(2),
+    );
   }
 
-  const grandTotal = materialAmount + royaltyAmount;
-  const balance = grandTotal - parsedAmountPaid;
+  const grandTotal = Number((materialAmount + royaltyAmount).toFixed(2));
+  let balance = Number((grandTotal - parsedAmountPaid).toFixed(2));
+  if (Object.is(balance, -0)) {
+    balance = 0;
+  }
 
   return prisma.$transaction(async (tx) => {
     let customer = await tx.customer.findUnique({
@@ -194,7 +201,9 @@ export const getGlobalTransactions = async ({
 
     whereClause.OR = [
       { vehicleNumber: { contains: formattedSearch.toUpperCase().trim() } },
-      { customerName: { contains: formattedSearch, mode: "insensitive" } },
+      {
+        customer: { name: { contains: formattedSearch, mode: "insensitive" } },
+      },
       { receiptNumber: { startsWith: formattedSearch, mode: "insensitive" } },
       { site: { contains: formattedSearch, mode: "insensitive" } },
     ];
@@ -226,6 +235,7 @@ export const getGlobalTransactions = async ({
         include: {
           material: { select: { name: true } },
           clerk: { select: { name: true } },
+          customer: { select: { name: true } },
         },
       }),
 
@@ -325,9 +335,7 @@ export const editCreditAmount = async ({
   return transaction;
 };
 
-/**
- * Fetch all matching transactions for Excel export (no pagination)
- */
+// for excel export
 export const exportGlobalTransactions = async ({
   search,
   material,
@@ -346,9 +354,11 @@ export const exportGlobalTransactions = async ({
         },
       },
       {
-        customerName: {
-          contains: formattedSearch,
-          mode: "insensitive",
+        customer: {
+          name: {
+            contains: formattedSearch,
+            mode: "insensitive",
+          },
         },
       },
       {
@@ -394,6 +404,11 @@ export const exportGlobalTransactions = async ({
         },
       },
       clerk: {
+        select: {
+          name: true,
+        },
+      },
+      customer: {
         select: {
           name: true,
         },

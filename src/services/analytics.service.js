@@ -18,8 +18,8 @@ export const getSummaryMetrics = async (startDateStr, endDateStr) => {
   const aggregates = await prisma.transaction.aggregate({
     where: whereClause,
     _sum: {
-      quantity: true,
-      totalAmount: true,
+      materialQuantity: true,
+      grandTotal: true,
     },
     _count: {
       id: true,
@@ -27,8 +27,8 @@ export const getSummaryMetrics = async (startDateStr, endDateStr) => {
   });
 
   return {
-    totalRevenue: aggregates._sum.totalAmount || 0,
-    totalQuantity: aggregates._sum.quantity || 0,
+    totalRevenue: aggregates._sum.grandTotal || 0,
+    totalQuantity: aggregates._sum.materialQuantity || 0,
     totalTrucksCleared: aggregates._count.id || 0,
   };
 };
@@ -49,8 +49,8 @@ export const getMaterialBreakdownMetrics = async (startDateStr, endDateStr) => {
     by: ["materialId"],
     where: whereClause,
     _sum: {
-      quantity: true,
-      totalAmount: true,
+      materialQuantity: true,
+      grandTotal: true,
     },
     _count: {
       id: true,
@@ -68,8 +68,8 @@ export const getMaterialBreakdownMetrics = async (startDateStr, endDateStr) => {
   return dataGroups.map((group) => ({
     materialId: group.materialId,
     materialName: materialMap.get(group.materialId) || "Unknown Category",
-    revenueGenerated: group._sum.totalAmount || 0,
-    totalQuantity: group._sum.quantity || 0,
+    revenueGenerated: group._sum.grandTotal || 0,
+    totalQuantity: group._sum.materialQuantity || 0,
     truckCount: group._count.id || 0,
   }));
 };
@@ -100,8 +100,8 @@ export const getAnalyticsTrendData = async (preset) => {
       createdAt: { gte: startDate },
     },
     _sum: {
-      quantity: true,
-      totalAmount: true,
+      materialQuantity: true,
+      grandTotal: true,
     },
     orderBy: {
       createdAt: "asc",
@@ -118,19 +118,19 @@ export const getAnalyticsTrendData = async (preset) => {
     const month = dateObj.toLocaleString("en-US", { month: "short" });
     const formattedLabel = `${day} ${month}`;
 
-    const revenueAmount = group._sum.totalAmount || 0;
-    const totalQuantity = group._sum.quantity || 0;
+    const revenueAmount = group._sum.grandTotal || 0;
+    const totalQuantity = group._sum.materialQuantity || 0;
 
     if (!bucketMap[formattedLabel]) {
       bucketMap[formattedLabel] = {
         timelineLabel: formattedLabel,
         revenue: 0,
-        quantity: 0,
+        materialQuantity: 0,
       };
     }
 
     bucketMap[formattedLabel].revenue += revenueAmount;
-    bucketMap[formattedLabel].quantity += totalQuantity;
+    bucketMap[formattedLabel].materialQuantity += totalQuantity;
   });
 
   // Return values compiled into a sorted chronological array sequence

@@ -52,7 +52,12 @@ export const getPendingRequests = async () => {
     include: {
       requestedBy: { select: { name: true } },
       transaction: {
-        include: { material: { select: { name: true } } },
+        include: {
+          material: {
+            select: { name: true },
+          },
+          customer: { select: { name: true } },
+        },
       },
     },
   });
@@ -115,13 +120,18 @@ export const getResolvedVoidHistory = async (status, page = 1, limit = 10) => {
       where: { status },
       skip: skipCount,
       take: limit,
+      orderBy: { updatedAt: "desc" },
       include: {
         requestedBy: { select: { name: true } },
         transaction: {
-          include: { material: { select: { name: true } } },
+          include: {
+            material: {
+              select: { name: true },
+            },
+            customer: { select: { name: true } },
+          },
         },
       },
-      orderBy: { updatedAt: "desc" },
     }),
   ]);
 
