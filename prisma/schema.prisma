@@ -79,8 +79,10 @@ model Material {
 }
 
 model Customer {
-  id                 String        @id @default(uuid())
-  name               String        @unique
+  id                    String @id @default(uuid())
+  name                  String @unique
+  initialOpeningBalance Float  @default(0)
+
   outstandingBalance Float         @default(0) // Running tally of debt (grandTotal - all payments)
   creditLimit        Float         @default(100000)
   // Relations
