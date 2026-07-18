@@ -9,7 +9,7 @@ import { io } from "../server.js";
  * @access  Private (Clerk Only)
  */
 export const processTransaction = asyncHandler(async (req, res) => {
-  console.log("[Incoming Payload Data]:", req.body);
+  // console.log("[Incoming Payload Data]:", req.body);
   const {
     receiptNumber,
     vehicleNumber,
@@ -25,10 +25,12 @@ export const processTransaction = asyncHandler(async (req, res) => {
     materialId,
     createdAt,
     rateStatus,
+    businessDate,
   } = req.body;
   const transaction = await transactionService.createTransactionRecord({
     receiptNumber,
     vehicleNumber,
+    businessDate,
     // customerId,
     customerName,
     materialQuantity,

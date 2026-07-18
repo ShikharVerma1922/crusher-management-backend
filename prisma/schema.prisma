@@ -79,9 +79,10 @@ model Material {
 }
 
 model Customer {
-  id                    String @id @default(uuid())
-  name                  String @unique
-  initialOpeningBalance Float  @default(0)
+  id                    String    @id @default(uuid())
+  name                  String    @unique
+  initialOpeningBalance Float     @default(0)
+  openingBalanceDate    DateTime?
 
   outstandingBalance Float         @default(0) // Running tally of debt (grandTotal - all payments)
   creditLimit        Float         @default(100000)
@@ -101,8 +102,12 @@ model Payment {
   referenceNo   String?
   remarks       String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  paymentDate  DateTime
+  businessDate DateTime
+
+  isVoided Boolean @default(false)
 
   // Relations
   customerId   String
@@ -136,9 +141,10 @@ model Transaction {
   rateStatus RateStatus @default(SETTLED)
 
   // Operational Control Logs
-  isVoided  Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isVoided     Boolean  @default(false)
+  businessDate DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // Relations
   customerId  String
