@@ -13,6 +13,7 @@ import materialRoutes from "./routes/material.route.js";
 import voidRoutes from "./routes/void.route.js";
 import analyticsRoutes from "./routes/analytics.route.js";
 import userRoutes from "./routes/user.route.js";
+import paymentRoutes from "./routes/payment.route.js";
 
 const app = express();
 
@@ -44,6 +45,7 @@ app.use("/api/customers", customerRoutes);
 app.use("/api/materials", materialRoutes);
 app.use("/api/void-requests", voidRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/payments", paymentRoutes);
 app.get("/api/is-online", (req, res) => {
   return res.status(200).json({ isOnline: true });
 });

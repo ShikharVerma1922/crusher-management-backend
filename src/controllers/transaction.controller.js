@@ -25,10 +25,12 @@ export const processTransaction = asyncHandler(async (req, res) => {
     materialId,
     createdAt,
     rateStatus,
+    businessDate,
   } = req.body;
   const transaction = await transactionService.createTransactionRecord({
     receiptNumber,
     vehicleNumber,
+    businessDate,
     // customerId,
     customerName,
     materialQuantity,

@@ -17,6 +17,7 @@ export const createTransactionRecord = async ({
   site,
   materialId,
   createdAt,
+  businessDate,
   clerkId,
   rateStatus = "SETTLED",
 }) => {
@@ -137,6 +138,7 @@ export const createTransactionRecord = async ({
         rateStatus: normalizedRateStatus,
         site,
         createdAt: createdAt ? new Date(createdAt) : new Date(),
+        businessDate: businessDate ? new Date(businessDate) : null,
         customer: {
           connect: {
             id: customer.id,
