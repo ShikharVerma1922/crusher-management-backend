@@ -86,6 +86,7 @@ export const getCustomerRunningLedger = async ({ customerId, from, to }) => {
       amountPaid: true,
       balance: true, // The net debit of this invoice
       createdAt: true,
+      rateStatus: true,
       material: { select: { name: true } },
     },
   });
@@ -119,10 +120,11 @@ export const getCustomerRunningLedger = async ({ customerId, from, to }) => {
     type: "DEBIT",
     date: tx.createdAt,
     referenceNumber: tx.receiptNumber,
-    particulars: `${tx.material?.name || "Material Load"} (Vehicle: ${tx.vehicleNumber})`,
+    particulars: `${tx.material?.name || "Material"}${tx.vehicleNumber ? ` - ${tx.vehicleNumber}` : ""}`,
     debit: tx.balance,
     credit: 0.0,
     amount: tx.balance,
+    rateStatus: tx.rateStatus,
   }));
 
   // Map Payments to standard Ledger Credit Items
@@ -131,7 +133,7 @@ export const getCustomerRunningLedger = async ({ customerId, from, to }) => {
     type: "CREDIT",
     date: p.createdAt,
     referenceNumber: p.receiptNumber,
-    particulars: `Payment Recd (${p.paymentMode}${p.referenceNo ? ` Ref: ${p.referenceNo}` : ""})`,
+    particulars: `${p.paymentMode} Received${p.referenceNo ? ` (${p.referenceNo})` : ""}`,
     debit: 0.0,
     credit: p.amountPaid,
     amount: p.amountPaid,

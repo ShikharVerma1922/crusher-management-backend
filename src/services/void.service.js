@@ -72,6 +72,14 @@ export const actionRequest = async (
 ) => {
   const request = await prisma.voidRequest.findUnique({
     where: { id: requestId },
+    include: {
+      transaction: {
+        select: {
+          customerId: true,
+          balance: true,
+        },
+      },
+    },
   });
 
   if (!request) {
@@ -100,6 +108,15 @@ export const actionRequest = async (
       await tx.transaction.update({
         where: { id: request.transactionId },
         data: { isVoided: true },
+      });
+
+      await tx.customer.update({
+        where: { id: request.transaction.customerId },
+        data: {
+          outstandingBalance: {
+            decrement: request.transaction.balance,
+          },
+        },
       });
     }
 

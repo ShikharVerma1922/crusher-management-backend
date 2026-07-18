@@ -9,7 +9,7 @@ import { io } from "../server.js";
  * @access  Private (Clerk Only)
  */
 export const processTransaction = asyncHandler(async (req, res) => {
-  // console.log("[Incoming Payload Data]:", req.body);
+  console.log("[Incoming Payload Data]:", req.body);
   const {
     receiptNumber,
     vehicleNumber,
