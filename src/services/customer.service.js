@@ -127,7 +127,7 @@ export const getCustomerRunningLedger = async ({ customerId, from, to }) => {
     type: "DEBIT",
     date: tx.businessDate,
     referenceNumber: tx.receiptNumber,
-    particulars: `${tx.material?.name || "Material"}${tx.vehicleNumber ? ` - ${tx.vehicleNumber}` : ""}`,
+    particulars: `${tx.material?.name || "Material"}${tx.vehicleNumber ? ` - V.No.${tx.vehicleNumber}` : ""}${tx.grandTotal ? ` - ₹${tx.grandTotal}` : ""}`,
     debit: tx.balance,
     credit: 0.0,
     amount: tx.balance,
