@@ -2,7 +2,11 @@ import prisma from "../config/prisma.js";
 import { ApiError } from "../utils/ApiError.js";
 
 export const getAllCustomers = async () => {
-  const customers = await prisma.customer.findMany();
+  const customers = await prisma.customer.findMany({
+    orderBy: {
+      outstandingBalance: "desc",
+    },
+  });
 
   return customers;
 };
@@ -40,7 +44,7 @@ export const getCustomerRunningLedger = async ({ customerId, from, to }) => {
     where: {
       customerId,
       isVoided: false,
-      createdAt: { lt: startDate },
+      businessDate: { lt: startDate },
     },
     _sum: {
       balance: true,
@@ -51,7 +55,8 @@ export const getCustomerRunningLedger = async ({ customerId, from, to }) => {
   const historicalCredits = await prisma.payment.aggregate({
     where: {
       customerId,
-      createdAt: { lt: startDate },
+      isVoided: false,
+      businessDate: { lt: startDate },
     },
     _sum: {
       amountPaid: true,
@@ -73,7 +78,7 @@ export const getCustomerRunningLedger = async ({ customerId, from, to }) => {
     where: {
       customerId,
       isVoided: false,
-      createdAt: {
+      businessDate: {
         gte: startDate,
         lte: endDate,
       },
@@ -86,6 +91,7 @@ export const getCustomerRunningLedger = async ({ customerId, from, to }) => {
       amountPaid: true,
       balance: true, // The net debit of this invoice
       createdAt: true,
+      businessDate: true,
       rateStatus: true,
       material: { select: { name: true } },
     },
@@ -95,7 +101,7 @@ export const getCustomerRunningLedger = async ({ customerId, from, to }) => {
   const periodPayments = await prisma.payment.findMany({
     where: {
       customerId,
-      createdAt: {
+      businessDate: {
         gte: startDate,
         lte: endDate,
       },
@@ -106,7 +112,8 @@ export const getCustomerRunningLedger = async ({ customerId, from, to }) => {
       amountPaid: true,
       paymentMode: true,
       referenceNo: true,
-      createdAt: true,
+      paymentDate: true,
+      businessDate: true,
     },
   });
 
@@ -118,7 +125,7 @@ export const getCustomerRunningLedger = async ({ customerId, from, to }) => {
   const formattedInvoices = periodTransactions.map((tx) => ({
     id: tx.id,
     type: "DEBIT",
-    date: tx.createdAt,
+    date: tx.businessDate,
     referenceNumber: tx.receiptNumber,
     particulars: `${tx.material?.name || "Material"}${tx.vehicleNumber ? ` - ${tx.vehicleNumber}` : ""}`,
     debit: tx.balance,
@@ -131,7 +138,7 @@ export const getCustomerRunningLedger = async ({ customerId, from, to }) => {
   const formattedPayments = periodPayments.map((p) => ({
     id: p.id,
     type: "CREDIT",
-    date: p.createdAt,
+    date: p.businessDate,
     referenceNumber: p.receiptNumber,
     particulars: `${p.paymentMode} Received${p.referenceNo ? ` (${p.referenceNo})` : ""}`,
     debit: 0.0,
@@ -163,5 +170,147 @@ export const getCustomerRunningLedger = async ({ customerId, from, to }) => {
     openingBalance,
     closingBalance,
     items: ledgerItems,
+  };
+};
+
+export const updateCustomerDetails = async ({
+  id,
+  name,
+  initialOpeningBalance,
+  openingBalanceDate,
+  creditLimit,
+}) => {
+  if (!id) throw new ApiError("Customer structural ID argument is required.");
+
+  const parsedOpeningBalance = parseFloat(initialOpeningBalance);
+  const parsedCreditLimit = parseFloat(creditLimit);
+  const parsedDate = openingBalanceDate ? new Date(openingBalanceDate) : null;
+
+  if (isNaN(parsedOpeningBalance))
+    throw new ApiError("Invalid entry for initial opening balance.");
+  if (isNaN(parsedCreditLimit) || parsedCreditLimit < 0)
+    throw new ApiError("Credit limit must be a valid positive number.");
+  // Execute inside an atomic transaction to keep core settings and history synced
+  return await prisma.$transaction(async (tx) => {
+    // 1. Fetch the current customer state
+    const existingCustomer = await tx.customer.findUnique({
+      where: { id },
+      select: {
+        initialOpeningBalance: true,
+        outstandingBalance: true,
+      },
+    });
+
+    if (!existingCustomer) {
+      throw new ApiError(404, "Customer record not found.");
+    }
+
+    // 2. Calculate the change in opening balance
+    const openingBalanceDelta =
+      parsedOpeningBalance - existingCustomer.initialOpeningBalance;
+
+    // 3. Apply the delta to the current outstanding balance
+    const updatedOutstandingBalance =
+      existingCustomer.outstandingBalance + openingBalanceDelta;
+    // 4. Update the customer
+    const updatedCustomer = await tx.customer.update({
+      where: { id },
+      data: {
+        name: name.trim(),
+        initialOpeningBalance: parsedOpeningBalance,
+        openingBalanceDate: parsedDate,
+        creditLimit: parsedCreditLimit,
+        outstandingBalance: updatedOutstandingBalance,
+      },
+      select: {
+        id: true,
+        name: true,
+        initialOpeningBalance: true,
+        openingBalanceDate: true,
+        creditLimit: true,
+        outstandingBalance: true,
+      },
+    });
+    console.log(updatedCustomer);
+    return {
+      ...updatedCustomer,
+      openingBalanceDate: updatedCustomer.openingBalanceDate
+        ? updatedCustomer.openingBalanceDate.toISOString().split("T")[0]
+        : null,
+    };
+  });
+};
+
+export const getCustomerDetailsById = async ({ id }) => {
+  if (!id) throw new Error("Customer profile ID argument is required.");
+
+  // Execute queries in parallel using your established $transaction design pattern
+  const [customer, totalTicketsCount, historicalFinancialSummary] =
+    await prisma.$transaction([
+      // 1. Fetch main account specifications
+      prisma.customer.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          name: true,
+          initialOpeningBalance: true,
+          openingBalanceDate: true,
+          creditLimit: true,
+          outstandingBalance: true,
+          createdAt: true,
+        },
+      }),
+
+      // 2. Count total unvoided dispatches associated with this account
+      prisma.transaction.count({
+        where: {
+          customerId: id,
+          isVoided: false,
+        },
+      }),
+
+      // 3. Aggregate tracking parameters for account health analysis
+      prisma.transaction.aggregate({
+        where: {
+          customerId: id,
+          isVoided: false,
+          rateStatus: "SETTLED",
+        },
+        _sum: {
+          grandTotal: true,
+          amountPaid: true,
+        },
+      }),
+    ]);
+
+  // Handle case where client row is missing from database indexes
+  if (!customer) {
+    throw new Error(
+      `No customer matching ID ${id} exists in the ledger records.`,
+    );
+  }
+
+  const totalInvoiced = historicalFinancialSummary._sum.grandTotal || 0;
+  const totalPaid = historicalFinancialSummary._sum.amountPaid || 0;
+
+  // Format response details securely so frontend field elements bind cleanly
+  return {
+    customer: {
+      id: customer.id,
+      name: customer.name,
+      initialOpeningBalance: customer.initialOpeningBalance,
+      openingBalanceDate: customer.openingBalanceDate
+        ? customer.openingBalanceDate.toISOString().split("T")[0]
+        : null,
+      creditLimit: customer.creditLimit,
+      outstandingBalance: customer.outstandingBalance,
+      registrationDate: customer.createdAt.toISOString().split("T")[0],
+    },
+    meta: {
+      totalTicketsCount,
+      totalInvoiced,
+      totalPaid,
+      availableCredit: customer.creditLimit - customer.outstandingBalance,
+    },
   };
 };

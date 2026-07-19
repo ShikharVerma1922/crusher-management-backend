@@ -420,3 +420,144 @@ export const exportGlobalTransactions = async ({
 
   return transactions;
 };
+
+// get all unsettled transactions
+export const getUnvaluedTransactions = async ({ search, material }) => {
+  const whereClause = {
+    isVoided: false,
+    rateStatus: "OPEN",
+  };
+
+  if (search) {
+    const formattedSearch = search.trim();
+    whereClause.OR = [
+      { vehicleNumber: { contains: formattedSearch.toUpperCase().trim() } },
+      {
+        customer: { name: { contains: formattedSearch, mode: "insensitive" } },
+      },
+      { receiptNumber: { startsWith: formattedSearch, mode: "insensitive" } },
+      { site: { contains: formattedSearch, mode: "insensitive" } },
+    ];
+  }
+
+  if (material) {
+    whereClause.materialId = material;
+  }
+
+  const [transactions, totalCount, volumeAggregation] =
+    await prisma.$transaction([
+      prisma.transaction.findMany({
+        where: whereClause,
+        orderBy: { businessDate: "asc" },
+        include: {
+          material: { select: { name: true } },
+          clerk: { select: { name: true } },
+          customer: { select: { name: true } },
+        },
+      }),
+
+      prisma.transaction.count({ where: whereClause }),
+
+      prisma.transaction.aggregate({
+        where: whereClause,
+        _sum: {
+          materialQuantity: true,
+        },
+      }),
+    ]);
+
+  const totalVolume = volumeAggregation._sum.materialQuantity || 0;
+
+  // Format array payload safely so frontend inputs bind cleanly without throwing undefined metrics
+  const formattedTransactions = transactions.map((tx) => ({
+    id: tx.id,
+    receiptNumber: tx.receiptNumber,
+    businessDate: tx.businessDate.toISOString().split("T")[0], // Extract clean YYYY-MM-DD
+    customerName: tx.customer?.name || "Unknown Customer",
+    customerId: tx.customerId,
+    vehicleNumber: tx.vehicleNumber,
+    site: tx.site,
+    material: tx.material?.name || "Aggregate",
+    materialQuantity: tx.materialQuantity,
+    royaltyQuantity: tx.royaltyQuantity || 0,
+    royaltyRate: tx.royaltyRate || 0,
+    royaltyAmount: tx.royaltyAmount || 0,
+    amountPaid: tx.amountPaid || 0,
+    materialRate: "", // Pushed empty string initialization hook for frontend input fields
+  }));
+
+  return {
+    transactions: formattedTransactions,
+    meta: {
+      totalCount,
+      totalVolume,
+    },
+  };
+};
+
+// settle rate logic
+export const batchSettleTransactions = async ({ items }) => {
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    throw new Error(
+      "Invalid payload standard: 'items' data array is required.",
+    );
+  }
+
+  // Atomic pipeline validation layer
+  return await prisma.$transaction(async (tx) => {
+    const settlementResults = [];
+
+    for (const item of items) {
+      const { id, materialRate } = item;
+      const parsedRate = parseFloat(materialRate);
+
+      if (isNaN(parsedRate) || parsedRate <= 0) {
+        throw new Error(
+          `Invalid transaction pricing assignment rule specified for row ID: ${id}`,
+        );
+      }
+
+      const currentTx = await tx.transaction.findUnique({
+        where: { id },
+        select: {
+          materialQuantity: true,
+          royaltyQuantity: true,
+          royaltyRate: true,
+          amountPaid: true,
+        },
+      });
+
+      if (!currentTx) {
+        throw new Error(
+          `Target dispatch execution row reference ${id} not found.`,
+        );
+      }
+
+      // 📊 Corporate Commodity Math Formulas
+      const materialAmount = currentTx.materialQuantity * parsedRate;
+      const royaltyAmount =
+        currentTx.royaltyQuantity * (currentTx.royaltyRate || 0);
+      const grandTotal = materialAmount + royaltyAmount;
+      const balance = grandTotal - currentTx.amountPaid;
+
+      // Update structural values and break the isolation block
+      const updatedRecord = await tx.transaction.update({
+        where: { id },
+        data: {
+          materialRate: parsedRate,
+          materialAmount: materialAmount,
+          grandTotal: grandTotal,
+          balance: balance,
+          rateStatus: "SETTLED",
+        },
+      });
+
+      settlementResults.push(updatedRecord);
+    }
+
+    return {
+      success: true,
+      settledCount: settlementResults.length,
+    };
+  });
+};

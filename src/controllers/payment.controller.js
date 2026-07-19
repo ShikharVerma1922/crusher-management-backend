@@ -3,8 +3,16 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import * as paymentService from "../services/payment.service.js";
 
 export const handlePostPaymentRecord = asyncHandler(async (req, res) => {
-  const { customerId, amountPaid, paymentMode, referenceNo, remarks } =
-    req.body;
+  const {
+    customerId,
+    amountPaid,
+    paymentMode,
+    referenceNo,
+    remarks,
+    paymentDate,
+    businessDate,
+  } = req.body;
+  console.log(req.body);
 
   const data = await paymentService.createPaymentRecord({
     customerId,
@@ -12,6 +20,8 @@ export const handlePostPaymentRecord = asyncHandler(async (req, res) => {
     paymentMode,
     referenceNo,
     remarks,
+    paymentDate,
+    businessDate,
   });
 
   return res

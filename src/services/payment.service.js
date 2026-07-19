@@ -7,31 +7,39 @@ export const createPaymentRecord = async ({
   paymentMode,
   referenceNo,
   remarks,
+  paymentDate,
+  businessDate,
 }) => {
   // 1. Validation
   if (
     !customerId ||
     !amountPaid ||
     isNaN(amountPaid) ||
-    parseFloat(amountPaid) <= 0
+    parseFloat(amountPaid) <= 0 ||
+    !paymentDate ||
+    !businessDate
   ) {
     throw new ApiError(400, "Invalid payment payload parameters.");
   }
 
   const paymentVal = parseFloat(amountPaid);
-
+  console.log(customerId);
+  const parsedPaymentDate = new Date(paymentDate);
+  const parsedBusinessDate = new Date(businessDate);
   // 2. Execute atomic ledger transaction update
   const result = await prisma.$transaction(async (tx) => {
     // A. Verify customer exists
     const customer = await tx.customer.findUnique({
       where: { id: customerId },
     });
+    console.log(customer);
     if (!customer) {
       throw new Error("Customer record not found.");
     }
 
     // B. Generate unique receipt voucher token (e.g., REC-10004)
     const paymentCount = await tx.payment.count();
+    console.log(paymentCount);
     const receiptNumber = `${10001 + paymentCount}`;
 
     // C. Record payment voucher to ledger DB
@@ -43,6 +51,8 @@ export const createPaymentRecord = async ({
         paymentMode,
         referenceNo: referenceNo || null,
         remarks: remarks || null,
+        paymentDate: parsedPaymentDate,
+        businessDate: parsedBusinessDate,
       },
     });
 
@@ -55,7 +65,7 @@ export const createPaymentRecord = async ({
         },
       },
     });
-
+    console.log(updatedCustomer.outstandingBalance);
     return { newPayment, updatedCustomer };
   });
 
@@ -74,7 +84,7 @@ export const getAllPayments = async ({
 }) => {
   const skip = (page - 1) * limit;
 
-  const whereClause = {};
+  const whereClause = { isVoided: false };
 
   if (search) {
     const formattedSearch = search.trim();
@@ -88,9 +98,9 @@ export const getAllPayments = async ({
   }
 
   if (startDate || endDate) {
-    whereClause.createdAt = {};
-    if (startDate) whereClause.createdAt.gte = new Date(startDate);
-    if (endDate) whereClause.createdAt.lte = new Date(endDate);
+    whereClause.paymentDate = {};
+    if (startDate) whereClause.paymentDate.gte = new Date(startDate);
+    if (endDate) whereClause.paymentDate.lte = new Date(endDate);
   }
 
   // 🚀 Added raw groupings to aggregate financial metrics in parallel execution
@@ -122,7 +132,7 @@ export const getAllPayments = async ({
 };
 
 export const exportGlobalPayments = async ({ search, startDate, endDate }) => {
-  const whereClause = {};
+  const whereClause = { isVoided: false };
 
   if (search) {
     const formattedSearch = search.trim();

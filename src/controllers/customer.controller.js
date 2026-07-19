@@ -35,3 +35,43 @@ export const handleGetCustomerRunningLedger = asyncHandler(async (req, res) => {
       ),
     );
 });
+
+export const handleUpdateCustomerDetails = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { name, initialOpeningBalance, openingBalanceDate, creditLimit } =
+    req.body;
+  console.log(req.body);
+  const data = await customerService.updateCustomerDetails({
+    id,
+    name,
+    initialOpeningBalance,
+    openingBalanceDate,
+    creditLimit,
+  });
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        data,
+        "Customer profile and running balances successfully re-indexed.",
+      ),
+    );
+});
+
+export const handleGetCustomerDetails = async (req, res) => {
+  const { id } = req.params;
+
+  const data = await customerService.getCustomerDetailsById({ id });
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        data,
+        "Customer profile and running balances fetched successfully.",
+      ),
+    );
+};

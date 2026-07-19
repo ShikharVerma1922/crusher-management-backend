@@ -8,7 +8,12 @@ import {
 
 const router = express.Router();
 
-router.post("/", protect, handlePostPaymentRecord);
+router.post(
+  "/",
+  protect,
+  authorize("OWNER", "CLERK", "SUPERVISOR"),
+  handlePostPaymentRecord,
+);
 router.get("/", protect, authorize("OWNER"), handleGetAllPayments);
 router.get("/export", protect, authorize("OWNER"), handleExportGlobalPayments);
 

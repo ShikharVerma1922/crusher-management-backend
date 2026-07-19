@@ -2,6 +2,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import * as transactionService from "../services/transaction.service.js";
 import { io } from "../server.js";
+import { date } from "zod";
 
 /**
  * @desc    Log weight data & instantly trigger 3x receipt sequence
@@ -198,4 +199,52 @@ export const handleUpdateCreditAmount = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(new ApiResponse(200, response, "Amount updated successfully."));
+});
+
+/**
+ * @desc    Get unsettled transaction history ledger
+ * @route   GET /api/transactions/unsettled
+ * @access  Private (Supervisor / Owner Only)
+ */
+export const getUnsettledTransactions = asyncHandler(async (req, res) => {
+  const { search, material } = req.query;
+  console.log(search);
+
+  const data = await transactionService.getUnvaluedTransactions({
+    search,
+    material,
+  });
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        data,
+        "Unsettled transaction registry records fetched successfully",
+      ),
+    );
+});
+/**
+ * @desc    Settle unsettled transaction
+ * @route   POST /api/transactions/unsettled
+ * @access  Private (Supervisor / Owner Only)
+ */
+export const batchSettleTransactions = asyncHandler(async (req, res) => {
+  const { items } = req.body;
+  console.log(items);
+
+  const data = await transactionService.batchSettleTransactions({
+    items,
+  });
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        data,
+        `Successfully settled and released ${data.settledCount} records to active ledgers.`,
+      ),
+    );
 });

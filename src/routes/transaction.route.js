@@ -8,6 +8,8 @@ import {
   getLatestReceiptNum,
   handleUpdateCreditAmount,
   exportAllTransactions,
+  getUnsettledTransactions,
+  batchSettleTransactions,
 } from "../controllers/transaction.controller.js";
 import { protect, authorize } from "../middlewares/auth.middleware.js";
 
@@ -42,6 +44,22 @@ router.get(
   protect,
   authorize("SUPERVISOR", "OWNER"),
   exportAllTransactions,
+);
+
+// 8. Global full unsettled transaction list - Restricted to Management level
+router.get(
+  "/unsettled",
+  protect,
+  authorize("SUPERVISOR", "OWNER"),
+  getUnsettledTransactions,
+);
+
+// 9. Batch settle the unsettled transactions
+router.post(
+  "/batch-settle",
+  protect,
+  authorize("SUPERVISOR", "OWNER"),
+  batchSettleTransactions,
 );
 
 export default router;
