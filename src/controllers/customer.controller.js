@@ -40,7 +40,6 @@ export const handleUpdateCustomerDetails = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { name, initialOpeningBalance, openingBalanceDate, creditLimit } =
     req.body;
-  console.log(req.body);
   const data = await customerService.updateCustomerDetails({
     id,
     name,

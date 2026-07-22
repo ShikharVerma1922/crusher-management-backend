@@ -162,3 +162,69 @@ export const getResolvedVoidHistory = async (status, page = 1, limit = 10) => {
     },
   };
 };
+
+export const directVoidTransaction = async (
+  transactionId,
+  { adminId, reason },
+) => {
+  const transaction = await prisma.transaction.findUnique({
+    where: { id: transactionId },
+    select: {
+      id: true,
+      customerId: true,
+      balance: true,
+      isVoided: true,
+    },
+  });
+
+  if (!transaction) {
+    throw new ApiError(404, "Transaction not found.");
+  }
+
+  if (transaction.isVoided) {
+    throw new ApiError(400, "This transaction has already been voided.");
+  }
+
+  return await prisma.$transaction(async (tx) => {
+    await tx.voidRequest.create({
+      data: {
+        transaction: {
+          connect: {
+            id: transactionId,
+          },
+        },
+        requestedBy: {
+          connect: {
+            id: adminId,
+          },
+        },
+        actionedBy: {
+          connect: {
+            id: adminId,
+          },
+        },
+        reason: reason?.trim() || "Admin Privilege",
+        status: "APPROVED",
+        adminNotes: "Voided directly by administrator.",
+      },
+    });
+
+    const updatedTransaction = await tx.transaction.update({
+      where: { id: transactionId },
+      data: {
+        isVoided: true,
+      },
+    });
+
+    await tx.customer.update({
+      where: { id: transaction.customerId },
+      data: {
+        outstandingBalance: {
+          decrement: transaction.balance,
+        },
+      },
+    });
+
+    return updatedTransaction;
+  });
+};

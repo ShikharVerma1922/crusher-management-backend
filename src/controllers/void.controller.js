@@ -76,6 +76,34 @@ export const resolveVoidRequest = asyncHandler(async (req, res) => {
     );
 });
 
+/**
+ * @desc    Directly void a transaction
+ * @route   POST /api/void-requests/direct
+ * @access  Private (Supervisor / Owner)
+ */
+export const directVoidTransaction = asyncHandler(async (req, res) => {
+  const { transactionId, reason } = req.body;
+  const adminId = req.user.id;
+
+  const voidedTransaction = await voidService.directVoidTransaction(
+    transactionId,
+    {
+      adminId,
+      reason,
+    },
+  );
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        voidedTransaction,
+        "Transaction voided successfully.",
+      ),
+    );
+});
+
 export const getVoidHistory = asyncHandler(async (req, res) => {
   const { status } = req.query;
   const page = parseInt(req.query.page) || 1;

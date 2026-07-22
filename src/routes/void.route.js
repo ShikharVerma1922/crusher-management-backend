@@ -1,5 +1,6 @@
 import express from "express";
 import {
+  directVoidTransaction,
   fileVoidRequest,
   getVoidHistory,
   listPendingRequests,
@@ -10,7 +11,7 @@ import { protect, authorize } from "../middlewares/auth.middleware.js";
 const router = express.Router();
 
 // Clerks report errors
-router.post("/", protect, authorize("CLERK"), fileVoidRequest);
+router.post("/", protect, authorize("CLERK", "OWNER"), fileVoidRequest);
 
 // Management views and resolves the correction stream queue
 router.get(
@@ -26,5 +27,7 @@ router.patch(
   resolveVoidRequest,
 );
 router.get("/history", protect, authorize("OWNER"), getVoidHistory);
+
+router.post("/direct", protect, authorize("OWNER"), directVoidTransaction);
 
 export default router;
