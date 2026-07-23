@@ -347,6 +347,7 @@ export const editCreditAmount = async ({
 export const exportGlobalTransactions = async ({
   search,
   material,
+  paymentMode,
   startDate,
   endDate,
 }) => {
@@ -391,6 +392,10 @@ export const exportGlobalTransactions = async ({
         mode: "insensitive",
       },
     };
+  }
+
+  if (paymentMode && paymentMode.toLowerCase() !== "both") {
+    whereClause.paymentMode = paymentMode;
   }
 
   if (startDate || endDate) {
