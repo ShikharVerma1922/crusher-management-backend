@@ -6,7 +6,7 @@ import { ApiError } from "../utils/ApiError.js";
  * Add a brand new material type to the plant registry
  */
 export const addMaterialType = async ({ name, ratePerTon }) => {
-  const normalizedName = name.trim().toUpperCase();
+  const normalizedName = name.trim();
 
   const existingMaterial = await prisma.material.findUnique({
     where: { name: normalizedName },
