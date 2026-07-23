@@ -191,6 +191,7 @@ export const getGlobalTransactions = async ({
   limit = 10,
   search,
   material,
+  paymentMode,
   startDate,
   endDate,
 }) => {
@@ -211,12 +212,17 @@ export const getGlobalTransactions = async ({
     ];
   }
 
-  if (material) {
-    // If your schema stores materialId directly on the transaction:
-    whereClause.materialId = material;
+  if (material && material.toLowerCase() !== "all") {
+    whereClause.material = {
+      name: {
+        equals: material,
+        mode: "insensitive",
+      },
+    };
+  }
 
-    // OR if you match by material name string instead, uncomment below:
-    // whereClause.material = { name: { contains: material, mode: "insensitive" } };
+  if (paymentMode && paymentMode.toLowerCase() !== "both") {
+    whereClause.paymentMode = paymentMode;
   }
 
   if (startDate || endDate) {
@@ -378,8 +384,13 @@ export const exportGlobalTransactions = async ({
     ];
   }
 
-  if (material) {
-    whereClause.materialId = material;
+  if (material && material.toLowerCase() !== "all") {
+    whereClause.material = {
+      name: {
+        equals: material,
+        mode: "insensitive",
+      },
+    };
   }
 
   if (startDate || endDate) {
