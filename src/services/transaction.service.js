@@ -194,6 +194,7 @@ export const getGlobalTransactions = async ({
   paymentMode,
   startDate,
   endDate,
+  sortDirection = "desc",
 }) => {
   const skip = (page - 1) * limit;
 
@@ -239,7 +240,7 @@ export const getGlobalTransactions = async ({
         where: whereClause,
         skip,
         take: parseInt(limit),
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: sortDirection },
         include: {
           material: { select: { name: true } },
           clerk: { select: { name: true } },

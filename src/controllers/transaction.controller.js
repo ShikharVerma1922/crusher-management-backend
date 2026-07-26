@@ -32,7 +32,6 @@ export const processTransaction = asyncHandler(async (req, res) => {
     receiptNumber,
     vehicleNumber,
     businessDate,
-    // customerId,
     customerName,
     materialQuantity,
     materialRate,
@@ -64,8 +63,16 @@ export const processTransaction = asyncHandler(async (req, res) => {
  * @access  Private (Supervisor / Owner Only)
  */
 export const getAllTransactions = asyncHandler(async (req, res) => {
-  const { page, limit, search, startDate, endDate, material, paymentMode } =
-    req.query;
+  const {
+    page,
+    limit,
+    search,
+    startDate,
+    endDate,
+    material,
+    paymentMode,
+    sortDirection,
+  } = req.query;
 
   const data = await transactionService.getGlobalTransactions({
     page,
@@ -75,6 +82,7 @@ export const getAllTransactions = asyncHandler(async (req, res) => {
     paymentMode,
     startDate,
     endDate,
+    sortDirection,
   });
 
   return res
