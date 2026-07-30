@@ -165,14 +165,15 @@ export const createTransactionRecord = async ({
 };
 
 /**
- * Fetch transaction by ID for safety verification or manual reprint triggers
+ * Fetch transaction by ID
  */
 export const getTransactionById = async (id) => {
   const transaction = await prisma.transaction.findUnique({
-    where: { id },
+    where: { id: id, isVoided: false },
     include: {
       material: { select: { name: true } },
       clerk: { select: { name: true } },
+      customer: { select: { name: true } },
     },
   });
 
@@ -184,7 +185,7 @@ export const getTransactionById = async (id) => {
 };
 
 /**
- * Fetch all global transactions with advanced administrative filtering
+ * Fetch all global transactions
  */
 export const getGlobalTransactions = async ({
   page = 1,

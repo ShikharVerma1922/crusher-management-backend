@@ -149,35 +149,15 @@ export const getShiftTransactions = asyncHandler(async (req, res) => {
  * @route   POST /api/transactions/:id/reprint
  * @access  Private (All Roles)
  */
-export const triggerManualReprint = asyncHandler(async (req, res) => {
+export const handleGetTransactionById = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   const transaction = await transactionService.getTransactionById(id);
-
-  // Re-broadcast the print signature over WebSockets to your local agent channel
-  io.to("plant_gate_1").emit("print-job-triggered", {
-    receiptNumber: transaction.receiptNumber,
-    vehicleNumber: transaction.vehicleNumber,
-    customerName: transaction.customerName,
-    materialName: transaction.material.name,
-    grossWeight: transaction.grossWeight,
-    tareWeight: transaction.tareWeight,
-    quantity: transaction.quantity,
-    rateApplied: transaction.rateApplied,
-    totalAmount: transaction.totalAmount,
-    clerkName: transaction.clerk.name,
-    timestamp: transaction.createdAt,
-    isReprint: true,
-  });
-
+  console.log(transaction);
   return res
     .status(200)
     .json(
-      new ApiResponse(
-        200,
-        null,
-        `Reprint command successfully broadcasted to Gate Printer`,
-      ),
+      new ApiResponse(200, transaction, `Record ${id} fetched successfully`),
     );
 });
 
