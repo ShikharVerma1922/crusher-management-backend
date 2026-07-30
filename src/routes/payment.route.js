@@ -3,6 +3,7 @@ import { authorize, protect } from "../middlewares/auth.middleware.js";
 import {
   handleExportGlobalPayments,
   handleGetAllPayments,
+  handleGetPaymentById,
   handlePostPaymentRecord,
 } from "../controllers/payment.controller.js";
 
@@ -16,5 +17,6 @@ router.post(
 );
 router.get("/", protect, authorize("OWNER"), handleGetAllPayments);
 router.get("/export", protect, authorize("OWNER"), handleExportGlobalPayments);
+router.get("/:id", protect, authorize("OWNER"), handleGetPaymentById);
 
 export default router;

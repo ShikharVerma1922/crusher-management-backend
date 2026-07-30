@@ -162,3 +162,19 @@ export const exportGlobalPayments = async ({ search, startDate, endDate }) => {
 
   return payments;
 };
+
+export const getPaymentById = async (id) => {
+  const payment = await prisma.payment.findUnique({
+    where: { id: id, isVoided: false },
+    include: {
+      receivedBy: { select: { name: true } },
+      customer: { select: { name: true } },
+    },
+  });
+
+  if (!payment) {
+    throw new ApiError(404, "Payment record not found");
+  }
+
+  return payment;
+};

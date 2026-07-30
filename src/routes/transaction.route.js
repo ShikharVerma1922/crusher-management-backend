@@ -25,7 +25,12 @@ router.get("/shift", protect, authorize("CLERK"), getShiftTransactions);
 router.post("/", protect, authorize("CLERK", "OWNER"), processTransaction);
 
 // 4. Remote hardware manual print trigger override - Open to all validated workers
-router.get("/:id", protect, authorize("OWNER"), handleGetTransactionById);
+router.get(
+  "/ticket/:id",
+  protect,
+  authorize("OWNER"),
+  handleGetTransactionById,
+);
 
 // 5. Get latest receipt number
 router.get("/latest-receipt-num", protect, getLatestReceiptNum);

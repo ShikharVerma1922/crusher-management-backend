@@ -73,3 +73,24 @@ export const handleExportGlobalPayments = asyncHandler(async (req, res) => {
       ),
     );
 });
+
+/**
+ * @desc    Get payment details by id
+ * @route   GET /api/payments/:id
+ * @access  Private (Owner Only)
+ */
+export const handleGetPaymentById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const payment = await paymentService.getPaymentById(id);
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        payment,
+        `Payment record ${id} fetched successfully`,
+      ),
+    );
+});

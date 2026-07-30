@@ -153,11 +153,15 @@ export const handleGetTransactionById = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   const transaction = await transactionService.getTransactionById(id);
-  console.log(transaction);
+
   return res
     .status(200)
     .json(
-      new ApiResponse(200, transaction, `Record ${id} fetched successfully`),
+      new ApiResponse(
+        200,
+        { ...transaction, type: "Invoice" },
+        `Record ${id} fetched successfully`,
+      ),
     );
 });
 
@@ -199,7 +203,6 @@ export const handleUpdateCreditAmount = asyncHandler(async (req, res) => {
  */
 export const getUnsettledTransactions = asyncHandler(async (req, res) => {
   const { search, material } = req.query;
-  console.log(search);
 
   const data = await transactionService.getUnvaluedTransactions({
     search,
