@@ -177,3 +177,21 @@ model VoidRequest {
   adminId    String?
   actionedBy User?   @relation("ActionedByAdmin", fields: [adminId], references: [id])
 }
+
+model CredentialVerification {
+  id               String   @id @default(uuid())
+  certId           String   @unique
+  internName       String
+  role             String
+  project          String?
+  duration         String
+  durationLabel    String
+  issueDate        DateTime
+  issuer           String
+  issuingAuthority String
+  stipendStatus    String?
+  technologies     String[]
+  isValid          Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
