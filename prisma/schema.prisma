@@ -120,6 +120,7 @@ model Transaction {
   id            String  @id @default(uuid())
   receiptNumber String  @unique
   vehicleNumber String
+  slipNumber    String?
   site          String?
 
   // Material Details

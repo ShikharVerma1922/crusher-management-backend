@@ -10,11 +10,11 @@ import { date } from "zod";
  * @access  Private (Clerk Only)
  */
 export const processTransaction = asyncHandler(async (req, res) => {
-  // console.log("[Incoming Payload Data]:", req.body);
+  console.log("[Incoming Payload Data]:", req.body);
   const {
     receiptNumber,
     vehicleNumber,
-    // customerId,
+    slipNumber,
     customerName,
     materialQuantity,
     materialRate,
@@ -31,6 +31,7 @@ export const processTransaction = asyncHandler(async (req, res) => {
   const transaction = await transactionService.createTransactionRecord({
     receiptNumber,
     vehicleNumber,
+    slipNumber,
     businessDate,
     customerName,
     materialQuantity,

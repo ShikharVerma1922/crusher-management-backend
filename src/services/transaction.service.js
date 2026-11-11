@@ -7,6 +7,7 @@ import { ApiError } from "../utils/ApiError.js";
 export const createTransactionRecord = async ({
   receiptNumber,
   vehicleNumber,
+  slipNumber,
   customerName,
   materialQuantity,
   materialRate = 0,
@@ -125,6 +126,7 @@ export const createTransactionRecord = async ({
       data: {
         receiptNumber: normalizedReceiptNumber,
         vehicleNumber: normalizedVehicleNumber,
+        slipNumber,
         materialQuantity: parsedMaterialQuantity,
         materialRate: normalizedRateStatus === "OPEN" ? 0 : parsedMaterialRate,
         materialAmount,
